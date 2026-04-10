@@ -20,7 +20,7 @@ import (
 	"github.com/zhaodengfeng/dtsw/internal/wizard"
 )
 
-const Version = "0.2.6"
+const Version = "0.2.7"
 
 func Run(args []string, stdout, stderr io.Writer) int {
 	if len(args) < 2 {
