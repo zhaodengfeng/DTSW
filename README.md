@@ -66,7 +66,13 @@ Not implemented yet:
 
 ## Quick start
 
-Interactive setup (recommended):
+One-line install (recommended):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/zhaodengfeng/DTSW/main/install.sh | bash
+```
+
+Or run setup again later:
 
 ```bash
 sudo dtsw setup
