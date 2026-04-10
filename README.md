@@ -25,6 +25,12 @@ The script downloads the DTSW binary, installs it, and automatically starts the 
 If you need to reconfigure later:
 
 ```bash
+dtsw setup
+```
+
+If your system requires root to manage services (service install/reload), run with sudo:
+
+```bash
 sudo dtsw setup
 ```
 
