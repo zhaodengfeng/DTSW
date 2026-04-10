@@ -20,7 +20,7 @@ import (
 	"github.com/zhaodengfeng/dtsw/internal/wizard"
 )
 
-const Version = "0.2.5"
+const Version = "0.2.6"
 
 func Run(args []string, stdout, stderr io.Writer) int {
 	if len(args) < 2 {
@@ -110,22 +110,26 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 func runSetup(stdout, stderr io.Writer) int {
 	input, cleanup, err := openSetupInput()
 	if err != nil {
-		fmt.Fprintf(stderr, "setup requires an interactive terminal: %v\n", err)
+		fmt.Fprintf(stderr, "setup requires an interactive terminal: %v
+", err)
 		return 1
 	}
 	defer cleanup()
 
 	result, err := wizard.Run(input, stdout, stderr)
 	if err != nil {
-		fmt.Fprintf(stderr, "setup wizard failed: %v\n", err)
+		fmt.Fprintf(stderr, "setup wizard failed: %v
+", err)
 		return 1
 	}
 	if err := os.MkdirAll(filepath.Dir(result.ConfigPath), 0o755); err != nil {
-		fmt.Fprintf(stderr, "create config directory: %v\n", err)
+		fmt.Fprintf(stderr, "create config directory: %v
+", err)
 		return 1
 	}
 	if err := config.Write(result.ConfigPath, result.Config); err != nil {
-		fmt.Fprintf(stderr, "write config: %v\n", err)
+		fmt.Fprintf(stderr, "write config: %v
+", err)
 		return 1
 	}
 
@@ -133,27 +137,33 @@ func runSetup(stdout, stderr io.Writer) int {
 	if abs, err := filepath.Abs(result.ConfigPath); err == nil {
 		displayConfigPath = abs
 	}
-	fmt.Fprintf(stdout, "\n✓ Configuration saved to %s\n", displayConfigPath)
+	fmt.Fprintf(stdout, "
+✓ Configuration saved to %s
+", displayConfigPath)
 
 	if !result.AutoStart {
-		fmt.Fprintln(stdout, "\nConfiguration saved.")
+		fmt.Fprintln(stdout, "
+Configuration saved.")
 		fmt.Fprintln(stdout, "Restart DTSW later and choose the install or repair option from the menu.")
 		return 0
 	}
 
 	if os.Geteuid() != 0 {
-		fmt.Fprintln(stdout, "\nAutomatic installation requires root.")
+		fmt.Fprintln(stdout, "
+Automatic installation requires root.")
 		fmt.Fprintln(stdout, "Restart DTSW as root later and choose the install or repair option from the menu.")
 		return 0
 	}
 
-	fmt.Fprintln(stdout, "\nStarting installation...")
+	fmt.Fprintln(stdout, "
+Starting installation...")
 	fmt.Fprintln(stdout, "")
 	if err := install.Execute(context.Background(), result.Config, install.Options{
 		Stdout: stdout,
 		Stderr: stderr,
 	}); err != nil {
-		fmt.Fprintf(stderr, "install failed: %v\n", err)
+		fmt.Fprintf(stderr, "install failed: %v
+", err)
 		return 1
 	}
 	fmt.Fprintln(stdout, "")
@@ -256,8 +266,7 @@ func runInstall(args []string, stdout, stderr io.Writer) int {
 	}
 	cfg, err := config.Load(*configPath)
 	if err != nil {
-		fmt.Fprintf(stderr, "load config: %v
-", err)
+		fmt.Fprintf(stderr, "load config: %v\n", err)
 		return 1
 	}
 	if err := install.Execute(context.Background(), cfg, install.Options{
