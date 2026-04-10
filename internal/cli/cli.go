@@ -21,7 +21,7 @@ import (
 	"github.com/zhaodengfeng/dtsw/internal/wizard"
 )
 
-const Version = "0.2.0"
+const Version = "0.2.1"
 
 func Run(args []string, stdout, stderr io.Writer) int {
 	if len(args) < 2 {
@@ -106,7 +106,14 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 }
 
 func runSetup(stdout, stderr io.Writer) int {
-	result, err := wizard.Run(os.Stdin, stdout, stderr)
+	input, cleanup, err := openSetupInput()
+	if err != nil {
+		fmt.Fprintf(stderr, "setup requires an interactive terminal: %v\n", err)
+		return 1
+	}
+	defer cleanup()
+
+	result, err := wizard.Run(input, stdout, stderr)
 	if err != nil {
 		fmt.Fprintf(stderr, "setup wizard failed: %v\n", err)
 		return 1
@@ -119,11 +126,24 @@ func runSetup(stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "write config: %v\n", err)
 		return 1
 	}
-	fmt.Fprintf(stdout, "\n✓ Configuration saved to %s\n", result.ConfigPath)
 
+	displayConfigPath := result.ConfigPath
+	if abs, err := filepath.Abs(result.ConfigPath); err == nil {
+		displayConfigPath = abs
+	}
+	fmt.Fprintf(stdout, "\n✓ Configuration saved to %s\n", displayConfigPath)
+
+	installCmd := fmt.Sprintf("sudo dtsw install --config %q", displayConfigPath)
 	if !result.AutoStart {
 		fmt.Fprintln(stdout, "\nTo install later, run:")
-		fmt.Fprintf(stdout, "  sudo dtsw install --config %s\n", result.ConfigPath)
+		fmt.Fprintf(stdout, "  %s\n", installCmd)
+		return 0
+	}
+
+	if os.Geteuid() != 0 {
+		fmt.Fprintln(stdout, "\nAutomatic installation requires root.")
+		fmt.Fprintln(stdout, "Run this next:")
+		fmt.Fprintf(stdout, "  %s\n", installCmd)
 		return 0
 	}
 
@@ -140,11 +160,10 @@ func runSetup(stdout, stderr io.Writer) int {
 	fmt.Fprintln(stdout, "✓ Installation completed successfully!")
 	fmt.Fprintln(stdout, "")
 	fmt.Fprintln(stdout, "Next steps:")
-	fmt.Fprintf(stdout, "  dtsw status --config %s\n", result.ConfigPath)
-	fmt.Fprintf(stdout, "  dtsw users url --config %s --name primary\n", result.ConfigPath)
+	fmt.Fprintf(stdout, "  dtsw status --config %q\n", displayConfigPath)
+	fmt.Fprintf(stdout, "  dtsw users url --config %q --name primary\n", displayConfigPath)
 	return 0
 }
-
 func runValidate(args []string, stdout, stderr io.Writer) int {
 	cfg, _, ok := loadConfigFlags("validate", args, stderr)
 	if !ok {
@@ -570,6 +589,17 @@ func trojanURL(cfg config.Config, user config.User) string {
 	u.RawQuery = q.Encode()
 	u.Fragment = user.Name
 	return u.String()
+}
+
+func openSetupInput() (io.Reader, func(), error) {
+	if info, err := os.Stdin.Stat(); err == nil && info.Mode()&os.ModeCharDevice != 0 {
+		return os.Stdin, func() {}, nil
+	}
+	tty, err := os.Open("/dev/tty")
+	if err != nil {
+		return nil, nil, err
+	}
+	return tty, func() { _ = tty.Close() }, nil
 }
 
 func printUsage(out io.Writer) {

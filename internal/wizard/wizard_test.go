@@ -8,18 +8,18 @@ import (
 
 func TestWizardProducesValidConfig(t *testing.T) {
 	input := strings.Join([]string{
-		"trojan.example.com", // domain
-		"admin@example.com",  // email
-		"",                   // password (accept default)
-		"",                   // port (accept 443)
-		"",                   // issuer (accept 1)
-		"",                   // challenge (accept 1 = http-01)
-		"",                   // config path (accept default)
-		"n",                  // don't auto-start
+		"trojan.example.com",
+		"admin@example.com",
+		"",
+		"",
+		"",
+		"",
+		"",
+		"n",
 	}, "\n") + "\n"
 
 	var stdout, stderr bytes.Buffer
-	result, err := Run(strings.NewReader(input), &stdout, &stderr)
+	result, err := run(strings.NewReader(input), &stdout, &stderr, true)
 	if err != nil {
 		t.Fatalf("wizard failed: %v", err)
 	}
@@ -29,26 +29,54 @@ func TestWizardProducesValidConfig(t *testing.T) {
 	if result.Config.Server.Domain != "trojan.example.com" {
 		t.Fatalf("unexpected domain: %s", result.Config.Server.Domain)
 	}
+	if result.ConfigPath != "/etc/dtsw/config.json" {
+		t.Fatalf("unexpected config path: %s", result.ConfigPath)
+	}
 	if result.AutoStart {
 		t.Fatal("expected AutoStart to be false")
 	}
 }
 
-func TestWizardDNS01RequiresProvider(t *testing.T) {
+func TestWizardNonRootDefaultsToLocalConfigPath(t *testing.T) {
 	input := strings.Join([]string{
-		"trojan.example.com", // domain
-		"admin@example.com",  // email
-		"mypassword",         // password
-		"443",                // port
-		"1",                  // issuer
-		"2",                  // challenge = dns-01
-		"dns_cf",             // dns provider
-		"/etc/dtsw/cfg.json", // config path
-		"y",                  // auto-start
+		"trojan.example.com",
+		"admin@example.com",
+		"mypassword",
+		"443",
+		"1",
+		"1",
+		"",
+		"",
 	}, "\n") + "\n"
 
 	var stdout, stderr bytes.Buffer
-	result, err := Run(strings.NewReader(input), &stdout, &stderr)
+	result, err := run(strings.NewReader(input), &stdout, &stderr, false)
+	if err != nil {
+		t.Fatalf("wizard failed: %v", err)
+	}
+	if result.ConfigPath != "./dtsw.config.json" {
+		t.Fatalf("expected local config path, got %s", result.ConfigPath)
+	}
+	if result.AutoStart {
+		t.Fatal("expected AutoStart to default to false for non-root setup")
+	}
+}
+
+func TestWizardDNS01RequiresProvider(t *testing.T) {
+	input := strings.Join([]string{
+		"trojan.example.com",
+		"admin@example.com",
+		"mypassword",
+		"443",
+		"1",
+		"2",
+		"dns_cf",
+		"/etc/dtsw/cfg.json",
+		"y",
+	}, "\n") + "\n"
+
+	var stdout, stderr bytes.Buffer
+	result, err := run(strings.NewReader(input), &stdout, &stderr, true)
 	if err != nil {
 		t.Fatalf("wizard failed: %v", err)
 	}

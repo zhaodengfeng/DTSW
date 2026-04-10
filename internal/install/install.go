@@ -170,9 +170,11 @@ func ensureACMESh(ctx context.Context, cfg config.Config, opts Options) error {
 	if _, err := os.Stat(cfg.Paths.ACMEBinary); err == nil {
 		return nil
 	}
+	url := acmeDownloadURL(config.DefaultACMEShVersion)
 	if opts.DryRun {
 		if opts.Stdout != nil {
-			fmt.Fprintf(opts.Stdout, "download https://get.acme.sh and install acme.sh for %s\n", cfg.TLS.Email)
+			fmt.Fprintf(opts.Stdout, "download %s\n", url)
+			fmt.Fprintf(opts.Stdout, "install acme.sh to %s\n", cfg.Paths.ACMEBinary)
 		}
 		return nil
 	}
@@ -181,15 +183,17 @@ func ensureACMESh(ctx context.Context, cfg config.Config, opts Options) error {
 		return err
 	}
 	defer os.RemoveAll(tmpDir)
-	scriptPath := filepath.Join(tmpDir, "get.acme.sh")
-	if err := ioutil.DownloadToFile(ctx, "https://get.acme.sh", scriptPath); err != nil {
+	scriptPath := filepath.Join(tmpDir, "acme.sh")
+	if err := ioutil.DownloadToFile(ctx, url, scriptPath); err != nil {
 		return err
 	}
-	cmd := exec.CommandContext(ctx, "/bin/sh", scriptPath, "email="+cfg.TLS.Email)
-	cmd.Stdout = opts.Stdout
-	cmd.Stderr = opts.Stderr
-	cmd.Env = append(os.Environ(), "HOME=/root")
-	return cmd.Run()
+	if err := os.Chmod(scriptPath, 0o755); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(cfg.Paths.ACMEBinary), 0o755); err != nil {
+		return err
+	}
+	return ioutil.CopyFile(scriptPath, cfg.Paths.ACMEBinary, 0o755)
 }
 
 func ensureXray(ctx context.Context, cfg config.Config, opts Options) error {
@@ -281,6 +285,10 @@ func writeBytes(path string, data []byte, mode os.FileMode, opts Options) error 
 		return err
 	}
 	return os.WriteFile(path, data, mode)
+}
+
+func acmeDownloadURL(version string) string {
+	return fmt.Sprintf("https://raw.githubusercontent.com/acmesh-official/acme.sh/%s/acme.sh", version)
 }
 
 func hasCommand(name string) bool {

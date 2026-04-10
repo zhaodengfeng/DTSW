@@ -41,7 +41,7 @@
     "dtsw_config_file": "/etc/dtsw/config.json",
     "dtsw_binary": "/usr/local/bin/dtsw",
     "xray_binary": "/usr/local/bin/xray",
-    "acme_binary": "/root/.acme.sh/acme.sh",
+    "acme_binary": "/usr/local/bin/acme.sh",
     "acme_env_file": "/etc/dtsw/acme.env",
     "systemd_dir": "/etc/systemd/system",
     "runtime_service": "dtsw-xray.service",

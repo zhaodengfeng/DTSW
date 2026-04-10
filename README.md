@@ -2,41 +2,37 @@
 
 DTSW stands for `Does Trojan still work?`.
 
-DTSW is a ground-up rewrite direction inspired by `easytrojan`, but it intentionally removes free shared domains and only supports user-owned domains. The current implementation uses:
+DTSW is a ground-up rewrite inspired by `easytrojan`, but it intentionally removes free shared domains and only supports user-owned domains. The current implementation uses:
 
 - a Go control plane (`dtsw`)
 - Xray as the first Trojan runtime adapter
 - `acme.sh` as the ACME client for `Let's Encrypt` and `ZeroSSL`
-- built-in fallback HTTP service
+- a built-in fallback HTTP service
 - generated `systemd` units for runtime, fallback, and auto-renewal
 
 ## One-line install
 
-Download, install, and launch the interactive setup wizard — all in one command:
+Download the installer from the latest published release, verify the binary checksum, install `dtsw`, and automatically start the interactive setup wizard:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/zhaodengfeng/DTSW/main/install.sh | bash
+curl -fsSL https://github.com/zhaodengfeng/DTSW/releases/latest/download/install.sh | bash
 ```
 
-The script downloads the DTSW binary, installs it, and automatically starts the setup wizard which guides you through domain, email, password, port, issuer, and challenge configuration.
+This release-based installer keeps the script and downloaded binary on the same published release line instead of mixing `main` with an older release asset.
 
-## Run setup again
+## Setup modes
 
-If you need to reconfigure later:
-
-```bash
-dtsw setup
-```
-
-If your system requires root to manage services (service install/reload), run with sudo:
+For a full guided install on a server, run:
 
 ```bash
 sudo dtsw setup
 ```
 
+If you run setup without root, DTSW now defaults to a local config path and writes the config safely, then tells you which `sudo dtsw install --config ...` command to run next.
+
 ## Manual setup
 
-If you prefer the traditional flag-based approach:
+If you prefer the flag-based path:
 
 ```bash
 dtsw init --domain trojan.example.com --email admin@example.com --password change-me
@@ -47,10 +43,10 @@ sudo dtsw install --config configs/dtsw.example.json
 
 Implemented now:
 
-- **interactive setup wizard** with automatic installation
+- interactive setup wizard with automatic installation when run as root
 - initialize, validate, and render DTSW/Xray config
 - generate runtime, fallback, and renewal `systemd` units
-- install DTSW, `acme.sh`, pinned Xray, config files, and services on Linux
+- install DTSW, pinned `acme.sh`, pinned Xray, config files, and services on Linux
 - request and renew certificates with `Let's Encrypt` or `ZeroSSL`
 - inspect health with `status` and `doctor`
 - manage Trojan users with `list`, `add`, `del`, and `url`
@@ -60,31 +56,31 @@ Not implemented yet:
 
 - traffic statistics and quota management
 - alternate runtime adapters such as `sing-box`
-- packaged upgrade workflow beyond the installer script and GitHub releases
 
 ## Supported assumptions
 
 - real installation targets Linux with `systemd`
-- certificate automation uses `acme.sh`
+- certificate automation uses a pinned `acme.sh` script plus DTSW-managed renewal timers
 - HTTP-01 requires TCP `80` to be reachable
 - DNS-01 requires provider credentials in `/etc/dtsw/acme.env`
 - the default runtime version is pinned in code and currently set to `v26.1.13`
+- the default `acme.sh` version is pinned in code and currently set to `3.1.2`
 
 ## Quick start
 
-One-line install (recommended):
+Run the release installer:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/zhaodengfeng/DTSW/main/install.sh | bash
+curl -fsSL https://github.com/zhaodengfeng/DTSW/releases/latest/download/install.sh | bash
 ```
 
-Or run setup again later:
+Or start the wizard directly:
 
 ```bash
 sudo dtsw setup
 ```
 
-Or generate a starter config manually:
+Generate a starter config manually:
 
 ```bash
 dtsw init --domain trojan.example.com --email admin@example.com --password change-me
@@ -105,7 +101,7 @@ dtsw install --config configs/dtsw.example.json --dry-run
 Install on a Linux host as root:
 
 ```bash
-dtsw install --config /etc/dtsw/config.json
+sudo dtsw install --config /etc/dtsw/config.json
 ```
 
 Check runtime and certificate state:
@@ -145,7 +141,7 @@ dtsw renew --config /etc/dtsw/config.json --dry-run
 Remove managed services and config:
 
 ```bash
-dtsw uninstall --config /etc/dtsw/config.json
+sudo dtsw uninstall --config /etc/dtsw/config.json
 ```
 
 ## Design choices

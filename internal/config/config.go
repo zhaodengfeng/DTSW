@@ -20,7 +20,8 @@ const (
 	ChallengeHTTP01 = "http-01"
 	ChallengeDNS01  = "dns-01"
 
-	DefaultXrayVersion = "v26.1.13"
+	DefaultXrayVersion   = "v26.1.13"
+	DefaultACMEShVersion = "3.1.2"
 )
 
 type Config struct {
@@ -92,7 +93,7 @@ func DefaultPaths() PathsConfig {
 		DTSWConfigFile:    "/etc/dtsw/config.json",
 		DTSWBinary:        "/usr/local/bin/dtsw",
 		XrayBinary:        "/usr/local/bin/xray",
-		ACMEBinary:        "/root/.acme.sh/acme.sh",
+		ACMEBinary:        "/usr/local/bin/acme.sh",
 		ACMEEnvFile:       "/etc/dtsw/acme.env",
 		SystemdDir:        "/etc/systemd/system",
 		RuntimeService:    "dtsw-xray.service",

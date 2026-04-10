@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/mail"
+	"os"
 	"strconv"
 	"strings"
 
@@ -23,6 +24,10 @@ type Result struct {
 
 // Run executes the interactive setup wizard.
 func Run(stdin io.Reader, stdout, stderr io.Writer) (Result, error) {
+	return run(stdin, stdout, stderr, os.Geteuid() == 0)
+}
+
+func run(stdin io.Reader, stdout, stderr io.Writer, isRoot bool) (Result, error) {
 	r := bufio.NewReader(stdin)
 	var result Result
 
@@ -33,15 +38,17 @@ func Run(stdin io.Reader, stdout, stderr io.Writer) (Result, error) {
 	fmt.Fprintln(stdout, "")
 	fmt.Fprintln(stdout, "This wizard will guide you through configuring DTSW.")
 	fmt.Fprintln(stdout, "Press Enter to accept the default value shown in [brackets].")
+	if !isRoot {
+		fmt.Fprintln(stdout, "Running without root will save a config in the current directory by default.")
+		fmt.Fprintln(stdout, "Installing services still requires running DTSW as root later.")
+	}
 	fmt.Fprintln(stdout, "")
 
-	// 1. Domain
 	domain, err := promptRequired(r, stdout, "Domain name (e.g. trojan.example.com)", "")
 	if err != nil {
 		return result, err
 	}
 
-	// 2. Email
 	email, err := promptValidated(r, stdout, "ACME email address", "", func(v string) error {
 		if v == "" {
 			return fmt.Errorf("email is required")
@@ -55,14 +62,12 @@ func Run(stdin io.Reader, stdout, stderr io.Writer) (Result, error) {
 		return result, err
 	}
 
-	// 3. Password
 	defaultPass := generatePassword()
 	password, err := promptDefault(r, stdout, "Trojan password", defaultPass)
 	if err != nil {
 		return result, err
 	}
 
-	// 4. Port
 	portStr, err := promptDefault(r, stdout, "Listen port", "443")
 	if err != nil {
 		return result, err
@@ -72,7 +77,6 @@ func Run(stdin io.Reader, stdout, stderr io.Writer) (Result, error) {
 		return result, fmt.Errorf("invalid port: %s", portStr)
 	}
 
-	// 5. TLS issuer
 	issuers := tlscfg.SupportedIssuers()
 	fmt.Fprintln(stdout, "")
 	fmt.Fprintln(stdout, "Available certificate issuers:")
@@ -89,7 +93,6 @@ func Run(stdin io.Reader, stdout, stderr io.Writer) (Result, error) {
 	}
 	selectedIssuer := issuers[issuerIdx-1].ID
 
-	// 6. Challenge type
 	fmt.Fprintln(stdout, "")
 	fmt.Fprintln(stdout, "ACME challenge types:")
 	fmt.Fprintln(stdout, "  1) HTTP-01 - Requires TCP port 80 to be reachable (recommended)")
@@ -112,13 +115,11 @@ func Run(stdin io.Reader, stdout, stderr io.Writer) (Result, error) {
 		return result, fmt.Errorf("invalid challenge selection: %s", challengeStr)
 	}
 
-	// 7. Config output path
-	configPath, err := promptDefault(r, stdout, "Config file path", "/etc/dtsw/config.json")
+	configPath, err := promptDefault(r, stdout, "Config file path", defaultConfigPath(isRoot))
 	if err != nil {
 		return result, err
 	}
 
-	// Build config
 	paths := config.DefaultPaths()
 	paths.DTSWConfigFile = configPath
 	cfg := config.Config{
@@ -160,27 +161,31 @@ func Run(stdin io.Reader, stdout, stderr io.Writer) (Result, error) {
 		return result, fmt.Errorf("configuration is invalid: %v", err)
 	}
 
-	// Show summary
 	fmt.Fprintln(stdout, "")
 	fmt.Fprintln(stdout, "╔══════════════════════════════════════╗")
 	fmt.Fprintln(stdout, "║         Configuration Summary        ║")
 	fmt.Fprintln(stdout, "╚══════════════════════════════════════╝")
 	fmt.Fprintln(stdout, "")
-	fmt.Fprintf(stdout, "  Domain:      %s\n", domain)
-	fmt.Fprintf(stdout, "  Email:       %s\n", email)
-	fmt.Fprintf(stdout, "  Password:    %s\n", password)
-	fmt.Fprintf(stdout, "  Port:        %d\n", port)
-	fmt.Fprintf(stdout, "  Issuer:      %s\n", selectedIssuer)
-	fmt.Fprintf(stdout, "  Challenge:   %s\n", challenge)
+	fmt.Fprintf(stdout, "  Domain:       %s\n", domain)
+	fmt.Fprintf(stdout, "  Email:        %s\n", email)
+	fmt.Fprintf(stdout, "  Password:     %s\n", password)
+	fmt.Fprintf(stdout, "  Port:         %d\n", port)
+	fmt.Fprintf(stdout, "  Issuer:       %s\n", selectedIssuer)
+	fmt.Fprintf(stdout, "  Challenge:    %s\n", challenge)
 	if dnsProvider != "" {
 		fmt.Fprintf(stdout, "  DNS Provider: %s\n", dnsProvider)
 	}
-	fmt.Fprintf(stdout, "  Config Path: %s\n", configPath)
-	fmt.Fprintf(stdout, "  Runtime:     Xray %s\n", config.DefaultXrayVersion)
+	fmt.Fprintf(stdout, "  Config Path:  %s\n", configPath)
+	fmt.Fprintf(stdout, "  Runtime:      Xray %s\n", config.DefaultXrayVersion)
 	fmt.Fprintln(stdout, "")
 
-	// Confirm
-	confirm, err := promptDefault(r, stdout, "Proceed with installation? (y/n)", "y")
+	if !isRoot {
+		fmt.Fprintln(stdout, "Installing services automatically requires root.")
+		fmt.Fprintln(stdout, "You can still save the config now and run the install command with sudo afterwards.")
+		fmt.Fprintln(stdout, "")
+	}
+
+	confirm, err := promptDefault(r, stdout, "Proceed with installation? (y/n)", defaultInstallAnswer(isRoot))
 	if err != nil {
 		return result, err
 	}
@@ -190,6 +195,20 @@ func Run(stdin io.Reader, stdout, stderr io.Writer) (Result, error) {
 	result.ConfigPath = configPath
 	result.AutoStart = autoStart
 	return result, nil
+}
+
+func defaultConfigPath(isRoot bool) string {
+	if isRoot {
+		return "/etc/dtsw/config.json"
+	}
+	return "./dtsw.config.json"
+}
+
+func defaultInstallAnswer(isRoot bool) string {
+	if isRoot {
+		return "y"
+	}
+	return "n"
 }
 
 func promptDefault(r *bufio.Reader, w io.Writer, label, defaultVal string) (string, error) {

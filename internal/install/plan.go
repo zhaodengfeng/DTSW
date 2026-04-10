@@ -29,13 +29,13 @@ func Build(cfg config.Config) []Step {
 		},
 		{
 			Title:       "Install acme.sh",
-			Description: "Install the external ACME client used for Let's Encrypt and ZeroSSL automation.",
-			Command:     fmt.Sprintf("curl https://get.acme.sh | sh -s email=%s", cfg.TLS.Email),
+			Description: "Download a pinned acme.sh script used for Let's Encrypt and ZeroSSL automation.",
+			Command:     fmt.Sprintf("curl -fsSL %s -o %s && chmod 0755 %s", acmeDownloadURL(config.DefaultACMEShVersion), cfg.Paths.ACMEBinary, cfg.Paths.ACMEBinary),
 		},
 		{
 			Title:       "Copy DTSW files",
 			Description: "Place the DTSW binary, config, and rendered Xray config on the target server.",
-			Command:     fmt.Sprintf("install -m 0755 ./bin/dtsw /usr/local/bin/dtsw && install -m 0644 ./config.json %s", cfg.Paths.DTSWConfigFile),
+			Command:     fmt.Sprintf("install -m 0755 ./bin/dtsw /usr/local/bin/dtsw && install -m 0600 ./config.json %s", cfg.Paths.DTSWConfigFile),
 		},
 		{
 			Title:       "Issue certificate",

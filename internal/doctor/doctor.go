@@ -80,16 +80,9 @@ func Run(cfg config.Config, expectedIP string) []Result {
 	}
 
 	ctx := context.Background()
-	for _, service := range []string{cfg.Paths.FallbackService, cfg.Paths.RuntimeService, cfg.Paths.RenewTimer} {
-		active := systemd.IsActive(ctx, service)
-		enabled := systemd.IsEnabled(ctx, service)
-		severity := SeverityWarn
-		detail := fmt.Sprintf("enabled=%t active=%t", enabled, active)
-		if active || enabled {
-			severity = SeverityPass
-		}
-		results = append(results, Result{Severity: severity, Title: service, Detail: detail})
-	}
+	results = append(results, evaluateServiceStatus(cfg.Paths.FallbackService, systemd.IsEnabled(ctx, cfg.Paths.FallbackService), systemd.IsActive(ctx, cfg.Paths.FallbackService), true))
+	results = append(results, evaluateServiceStatus(cfg.Paths.RuntimeService, systemd.IsEnabled(ctx, cfg.Paths.RuntimeService), systemd.IsActive(ctx, cfg.Paths.RuntimeService), true))
+	results = append(results, evaluateServiceStatus(cfg.Paths.RenewTimer, systemd.IsEnabled(ctx, cfg.Paths.RenewTimer), systemd.IsActive(ctx, cfg.Paths.RenewTimer), false))
 
 	return results
 }
@@ -106,6 +99,24 @@ func dirCheck(path, title string) Result {
 		return Result{Severity: SeverityPass, Title: title, Detail: path}
 	}
 	return Result{Severity: SeverityWarn, Title: title, Detail: fmt.Sprintf("%s does not exist yet", path)}
+}
+
+func evaluateServiceStatus(title string, enabled, active, requireActive bool) Result {
+	detail := fmt.Sprintf("enabled=%t active=%t", enabled, active)
+	if requireActive {
+		switch {
+		case active:
+			return Result{Severity: SeverityPass, Title: title, Detail: detail}
+		case enabled:
+			return Result{Severity: SeverityFail, Title: title, Detail: detail + "; service should be running"}
+		default:
+			return Result{Severity: SeverityWarn, Title: title, Detail: detail}
+		}
+	}
+	if enabled && active {
+		return Result{Severity: SeverityPass, Title: title, Detail: detail}
+	}
+	return Result{Severity: SeverityWarn, Title: title, Detail: detail}
 }
 
 func contains(items []string, expected string) bool {
