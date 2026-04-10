@@ -66,7 +66,11 @@ func Execute(ctx context.Context, cfg config.Config, opts Options) error {
 		}
 	}
 	if !opts.SkipEnable {
-		if err := systemd.EnableNow(ctx, systemd.CommandOptions{DryRun: opts.DryRun, Stdout: opts.Stdout, Stderr: opts.Stderr}, cfg.Paths.FallbackService, cfg.Paths.RuntimeService, cfg.Paths.RenewTimer); err != nil {
+		systemdOpts := systemd.CommandOptions{DryRun: opts.DryRun, Stdout: opts.Stdout, Stderr: opts.Stderr}
+		if err := systemd.Enable(ctx, systemdOpts, cfg.Paths.FallbackService, cfg.Paths.RuntimeService, cfg.Paths.RenewTimer); err != nil {
+			return err
+		}
+		if err := systemd.RestartOrStart(ctx, systemdOpts, cfg.Paths.FallbackService, cfg.Paths.RuntimeService, cfg.Paths.RenewTimer); err != nil {
 			return err
 		}
 	}

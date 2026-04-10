@@ -19,9 +19,45 @@ func DaemonReload(ctx context.Context, opts CommandOptions) error {
 	return run(ctx, opts, "systemctl", "daemon-reload")
 }
 
+func Enable(ctx context.Context, opts CommandOptions, units ...string) error {
+	args := append([]string{"enable"}, units...)
+	return run(ctx, opts, "systemctl", args...)
+}
+
 func EnableNow(ctx context.Context, opts CommandOptions, units ...string) error {
 	args := append([]string{"enable", "--now"}, units...)
 	return run(ctx, opts, "systemctl", args...)
+}
+
+func Start(ctx context.Context, opts CommandOptions, unit string) error {
+	return run(ctx, opts, "systemctl", "start", unit)
+}
+
+func Restart(ctx context.Context, opts CommandOptions, unit string) error {
+	return run(ctx, opts, "systemctl", "restart", unit)
+}
+
+func RestartOrStart(ctx context.Context, opts CommandOptions, units ...string) error {
+	if opts.DryRun {
+		for _, unit := range units {
+			if opts.Stdout != nil {
+				fmt.Fprintf(opts.Stdout, "systemctl restart-or-start %s\n", unit)
+			}
+		}
+		return nil
+	}
+	for _, unit := range units {
+		if IsActive(ctx, unit) {
+			if err := Restart(ctx, opts, unit); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := Start(ctx, opts, unit); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func Reload(ctx context.Context, opts CommandOptions, unit string) error {
@@ -55,5 +91,3 @@ func run(ctx context.Context, opts CommandOptions, name string, args ...string) 
 	cmd.Stderr = opts.Stderr
 	return cmd.Run()
 }
-
-

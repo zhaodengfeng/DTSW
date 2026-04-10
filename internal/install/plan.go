@@ -44,8 +44,8 @@ func Build(cfg config.Config) []Step {
 		},
 		{
 			Title:       "Enable services",
-			Description: "Start fallback HTTP, Xray runtime, and automatic renewal.",
-			Command:     fmt.Sprintf("systemctl enable --now %s %s %s", cfg.Paths.FallbackService, cfg.Paths.RuntimeService, cfg.Paths.RenewTimer),
+			Description: "Enable fallback HTTP, Xray runtime, and automatic renewal, then restart running units or start inactive ones.",
+			Command:     fmt.Sprintf("systemctl enable %s %s %s && systemctl restart %s %s %s  # DTSW starts inactive units automatically when needed", cfg.Paths.FallbackService, cfg.Paths.RuntimeService, cfg.Paths.RenewTimer, cfg.Paths.FallbackService, cfg.Paths.RuntimeService, cfg.Paths.RenewTimer),
 		},
 		{
 			Title:       "Open firewall",
