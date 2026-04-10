@@ -62,4 +62,11 @@ else
 fi
 
 log "installed ${INSTALL_DIR}/${BINARY_NAME}"
-log "next step: sudo dtsw setup"
+log "launching interactive setup..."
+echo ""
+
+if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
+  sudo "${INSTALL_DIR}/${BINARY_NAME}" setup
+else
+  "${INSTALL_DIR}/${BINARY_NAME}" setup
+fi

@@ -12,29 +12,21 @@ DTSW is a ground-up rewrite direction inspired by `easytrojan`, but it intention
 
 ## One-line install
 
-Install the DTSW CLI on a Linux server:
+Download, install, and launch the interactive setup wizard — all in one command:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/zhaodengfeng/DTSW/main/install.sh | bash
 ```
 
-## Interactive setup (recommended)
+The script downloads the DTSW binary, installs it, and automatically starts the setup wizard which guides you through domain, email, password, port, issuer, and challenge configuration.
 
-The fastest way to get started — the interactive wizard collects your information, generates the config, and runs the full installation automatically:
+## Run setup again
+
+If you need to reconfigure later:
 
 ```bash
 sudo dtsw setup
 ```
-
-The wizard will ask you for:
-- Your domain name (e.g. `trojan.example.com`)
-- ACME email address
-- Trojan password (a secure random default is generated)
-- Listen port (default: 443)
-- Certificate issuer (Let's Encrypt or ZeroSSL)
-- ACME challenge type (HTTP-01 or DNS-01)
-
-After confirming, it saves the config and begins installation.
 
 ## Manual setup
 
