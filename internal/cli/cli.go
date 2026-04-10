@@ -163,10 +163,7 @@ func runSetup(stdout, stderr io.Writer) int {
 	fmt.Fprintln(stdout, "")
 	fmt.Fprintln(stdout, "✓ Installation completed successfully!")
 	fmt.Fprintln(stdout, "")
-	fmt.Fprintln(stdout, "Next steps:")
-	fmt.Fprintf(stdout, "  dtsw status --config %q\n", displayConfigPath)
-	fmt.Fprintf(stdout, "  sudo dtsw panel --config %q\n", displayConfigPath)
-	fmt.Fprintf(stdout, "  dtsw users url --config %q --name primary\n", displayConfigPath)
+	printInstallSummary(stdout, displayConfigPath, result.Config)
 	return 0
 }
 func runValidate(args []string, stdout, stderr io.Writer) int {
@@ -279,6 +276,7 @@ func runInstall(args []string, stdout, stderr io.Writer) int {
 	}
 	if !*dryRun {
 		fmt.Fprintln(stdout, "install completed")
+		printInstallSummary(stdout, *configPath, cfg)
 	}
 	return 0
 }

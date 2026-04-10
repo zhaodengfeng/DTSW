@@ -2,12 +2,14 @@ package install
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
+	"time"
 
 	"github.com/zhaodengfeng/dtsw/internal/config"
 	"github.com/zhaodengfeng/dtsw/internal/ioutil"
@@ -217,7 +219,20 @@ func ensureXray(ctx context.Context, cfg config.Config, opts Options) error {
 }
 
 func ensureCertificate(ctx context.Context, cfg config.Config, opts Options) error {
-	if _, err := os.Stat(cfg.TLS.CertificateFile); err == nil {
+	valid, notAfter, err := tlscfg.ExistingCertificateValid(cfg.TLS.CertificateFile, cfg.TLS.PrivateKeyFile, time.Now())
+	if err == nil && valid {
+		if opts.Stdout != nil {
+			fmt.Fprintf(opts.Stdout, "reusing existing certificate valid until %s\n", notAfter.Format(time.RFC3339))
+		}
+		return nil
+	}
+	if err == nil {
+		if opts.Stdout != nil {
+			fmt.Fprintf(opts.Stdout, "existing certificate expired at %s; renewing\n", notAfter.Format(time.RFC3339))
+		}
+		return tlscfg.Renew(ctx, cfg, tlscfg.Options{DryRun: opts.DryRun, Stdout: opts.Stdout, Stderr: opts.Stderr})
+	}
+	if _, statErr := os.Stat(cfg.TLS.CertificateFile); statErr == nil && !errors.Is(err, os.ErrNotExist) {
 		return tlscfg.Renew(ctx, cfg, tlscfg.Options{DryRun: opts.DryRun, Stdout: opts.Stdout, Stderr: opts.Stderr})
 	}
 	return tlscfg.Issue(ctx, cfg, tlscfg.Options{DryRun: opts.DryRun, Stdout: opts.Stdout, Stderr: opts.Stderr})

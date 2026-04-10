@@ -90,6 +90,25 @@ func Renew(ctx context.Context, cfg config.Config, opts Options) error {
 	return run(ctx, cfg.Paths.ACMEBinary, installArgs, opts, cfg.Paths.ACMEEnvFile)
 }
 
+func ExistingCertificateValid(certFile, keyFile string, now time.Time) (bool, time.Time, error) {
+	if _, err := os.Stat(keyFile); err != nil {
+		return false, time.Time{}, err
+	}
+	data, err := os.ReadFile(certFile)
+	if err != nil {
+		return false, time.Time{}, err
+	}
+	block, _ := pem.Decode(data)
+	if block == nil {
+		return false, time.Time{}, errors.New("failed to decode PEM certificate")
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return false, time.Time{}, err
+	}
+	return now.Before(cert.NotAfter), cert.NotAfter, nil
+}
+
 func BuildIssueCommands(cfg config.Config) ([]string, []string, error) {
 	issuer, err := issuerServer(cfg.TLS.Issuer)
 	if err != nil {
@@ -229,5 +248,4 @@ func ensureTLSDirs(cfg config.Config, opts Options) error {
 	}
 	return nil
 }
-
 

@@ -54,6 +54,8 @@ Implemented now:
 - initialize, validate, and render DTSW/Xray config
 - generate runtime, fallback, and renewal `systemd` units
 - install DTSW, pinned `acme.sh`, pinned Xray, config files, and services on Linux
+- reuse an existing valid certificate on reinstall instead of requesting a new one
+- print client-ready connection details after installation
 - request and renew certificates with `Let's Encrypt` or `ZeroSSL`
 - inspect health with `status` and `doctor`
 - manage Trojan users with `list`, `add`, `del`, and `url`
@@ -110,6 +112,10 @@ Install on a Linux host as root:
 ```bash
 sudo dtsw install --config /etc/dtsw/config.json
 ```
+
+If DTSW finds an existing valid certificate and key in its configured paths during reinstall, it now reuses them instead of requesting a new certificate.
+
+After installation, DTSW prints the primary client connection details and import URL so you can copy them directly into your client.
 
 Check runtime and certificate state:
 
