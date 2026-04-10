@@ -30,6 +30,12 @@ sudo dtsw setup
 
 If you run setup without root, DTSW now defaults to a local config path and writes the config safely, then tells you which `sudo dtsw install --config ...` command to run next.
 
+For day-to-day management after install, open the panel:
+
+```bash
+sudo dtsw panel --config /etc/dtsw/config.json
+```
+
 ## Manual setup
 
 If you prefer the flag-based path:
@@ -44,6 +50,7 @@ sudo dtsw install --config configs/dtsw.example.json
 Implemented now:
 
 - interactive setup wizard with automatic installation when run as root
+- interactive management panel with one-click Xray upgrades
 - initialize, validate, and render DTSW/Xray config
 - generate runtime, fallback, and renewal `systemd` units
 - install DTSW, pinned `acme.sh`, pinned Xray, config files, and services on Linux
@@ -109,6 +116,7 @@ Check runtime and certificate state:
 ```bash
 dtsw status --config /etc/dtsw/config.json
 dtsw doctor --config /etc/dtsw/config.json
+sudo dtsw panel --config /etc/dtsw/config.json
 ```
 
 Manage users:
@@ -125,10 +133,18 @@ Export a client URL:
 dtsw users url --config /etc/dtsw/config.json --name primary
 ```
 
-Inspect supported certificate issuers:
+Inspect supported certificate issuers and runtime versions:
 
 ```bash
 dtsw tls issuers
+dtsw runtime current --config /etc/dtsw/config.json
+dtsw runtime latest
+```
+
+Upgrade Xray without editing the config by hand:
+
+```bash
+sudo dtsw runtime upgrade --config /etc/dtsw/config.json --latest
 ```
 
 Preview issuance or renewal commands:

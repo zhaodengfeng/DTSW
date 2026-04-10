@@ -21,7 +21,7 @@ import (
 	"github.com/zhaodengfeng/dtsw/internal/wizard"
 )
 
-const Version = "0.2.1"
+const Version = "0.2.2"
 
 func Run(args []string, stdout, stderr io.Writer) int {
 	if len(args) < 2 {
@@ -40,6 +40,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return runInit(args[2:], stdout, stderr)
 	case "setup":
 		return runSetup(stdout, stderr)
+	case "panel":
+		return runPanel(args[2:], stdout, stderr)
 	case "validate":
 		return runValidate(args[2:], stdout, stderr)
 	case "render":
@@ -48,6 +50,8 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return runPlan(args[2:], stdout, stderr)
 	case "install":
 		return runInstall(args[2:], stdout, stderr)
+	case "runtime":
+		return runRuntime(args[2:], stdout, stderr)
 	case "status":
 		return runStatus(args[2:], stdout, stderr)
 	case "doctor":
@@ -161,6 +165,7 @@ func runSetup(stdout, stderr io.Writer) int {
 	fmt.Fprintln(stdout, "")
 	fmt.Fprintln(stdout, "Next steps:")
 	fmt.Fprintf(stdout, "  dtsw status --config %q\n", displayConfigPath)
+	fmt.Fprintf(stdout, "  sudo dtsw panel --config %q\n", displayConfigPath)
 	fmt.Fprintf(stdout, "  dtsw users url --config %q --name primary\n", displayConfigPath)
 	return 0
 }
@@ -608,12 +613,16 @@ DTSW (Does Trojan still work?)
 
 Usage:
   dtsw setup                          Interactive setup wizard
+  dtsw panel --config path              Interactive management panel
   dtsw init [flags]                   Generate config from flags
   dtsw validate --config path
   dtsw render xray --config path
   dtsw render systemd --config path --unit xray
   dtsw plan install --config path
   dtsw install --config path [--dry-run]
+  dtsw runtime current --config path
+  dtsw runtime latest
+  dtsw runtime upgrade --config path [--latest|--version vX]
   dtsw status --config path
   dtsw doctor --config path [--expected-ip ip]
   dtsw users list --config path
