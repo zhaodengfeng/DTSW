@@ -8,13 +8,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	goruntime "runtime"
 	"strings"
+
+	"github.com/zhaodengfeng/dtsw/internal/ioutil"
 )
 
 type InstallOptions struct {
@@ -95,11 +96,11 @@ func Install(ctx context.Context, binaryPath, version string, opts InstallOption
 	defer os.RemoveAll(tmpDir)
 
 	archivePath := filepath.Join(tmpDir, asset)
-	if err := downloadToFile(ctx, url, archivePath); err != nil {
+	if err := ioutil.DownloadToFile(ctx, url, archivePath); err != nil {
 		return err
 	}
 	checksumPath := filepath.Join(tmpDir, asset+".dgst")
-	if err := downloadToFile(ctx, checksumURL, checksumPath); err != nil {
+	if err := ioutil.DownloadToFile(ctx, checksumURL, checksumPath); err != nil {
 		return err
 	}
 	if err := verifyArchiveChecksum(archivePath, checksumPath); err != nil {
@@ -116,7 +117,7 @@ func Install(ctx context.Context, binaryPath, version string, opts InstallOption
 	if err := os.Chmod(tmpBinary, 0o755); err != nil {
 		return err
 	}
-	if err := copyFile(tmpBinary, binaryPath, 0o755); err != nil {
+	if err := ioutil.CopyFile(tmpBinary, binaryPath, 0o755); err != nil {
 		return err
 	}
 	return nil
@@ -194,41 +195,4 @@ func extractBinary(archivePath, name, outPath string) error {
 	return fmt.Errorf("xray binary not found in %s", archivePath)
 }
 
-func downloadToFile(ctx context.Context, url, dest string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return err
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return fmt.Errorf("download %s failed with %s", url, resp.Status)
-	}
-	out, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-	_, err = io.Copy(out, resp.Body)
-	return err
-}
 
-func copyFile(src, dest string, mode os.FileMode) error {
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-	out, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, mode)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-	if _, err := io.Copy(out, in); err != nil {
-		return err
-	}
-	return out.Close()
-}

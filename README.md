@@ -18,7 +18,27 @@ Install the DTSW CLI on a Linux server:
 curl -fsSL https://raw.githubusercontent.com/zhaodengfeng/DTSW/main/install.sh | bash
 ```
 
-Then generate a starter config and install as root:
+## Interactive setup (recommended)
+
+The fastest way to get started — the interactive wizard collects your information, generates the config, and runs the full installation automatically:
+
+```bash
+sudo dtsw setup
+```
+
+The wizard will ask you for:
+- Your domain name (e.g. `trojan.example.com`)
+- ACME email address
+- Trojan password (a secure random default is generated)
+- Listen port (default: 443)
+- Certificate issuer (Let's Encrypt or ZeroSSL)
+- ACME challenge type (HTTP-01 or DNS-01)
+
+After confirming, it saves the config and begins installation.
+
+## Manual setup
+
+If you prefer the traditional flag-based approach:
 
 ```bash
 dtsw init --domain trojan.example.com --email admin@example.com --password change-me
@@ -29,6 +49,7 @@ sudo dtsw install --config configs/dtsw.example.json
 
 Implemented now:
 
+- **interactive setup wizard** with automatic installation
 - initialize, validate, and render DTSW/Xray config
 - generate runtime, fallback, and renewal `systemd` units
 - install DTSW, `acme.sh`, pinned Xray, config files, and services on Linux
@@ -53,7 +74,13 @@ Not implemented yet:
 
 ## Quick start
 
-Generate a starter config:
+Interactive setup (recommended):
+
+```bash
+sudo dtsw setup
+```
+
+Or generate a starter config manually:
 
 ```bash
 dtsw init --domain trojan.example.com --email admin@example.com --password change-me
@@ -123,3 +150,4 @@ dtsw uninstall --config /etc/dtsw/config.json
 - Certificate lifecycle stays outside the runtime, so CA switching, diagnostics, and reload behavior are controlled by DTSW rather than embedded in the proxy engine.
 - Fallback traffic is handled by `dtsw fallback-serve`, so the first usable version does not need Nginx or Caddy just to answer plain HTTP traffic.
 - Xray is the first runtime backend because it is a conservative default for a Trojan-focused migration path. The codebase keeps room for later runtime adapters.
+- Config files containing passwords are written with `0600` permissions for security.

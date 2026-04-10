@@ -62,4 +62,4 @@ else
 fi
 
 log "installed ${INSTALL_DIR}/${BINARY_NAME}"
-log "next step: dtsw init --domain your.domain --email you@example.com --password change-me"
+log "next step: sudo dtsw setup"

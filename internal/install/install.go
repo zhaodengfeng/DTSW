@@ -4,13 +4,13 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	goruntime "runtime"
 
 	"github.com/zhaodengfeng/dtsw/internal/config"
+	"github.com/zhaodengfeng/dtsw/internal/ioutil"
 	"github.com/zhaodengfeng/dtsw/internal/runtime/xray"
 	"github.com/zhaodengfeng/dtsw/internal/systemd"
 	"github.com/zhaodengfeng/dtsw/internal/tlscfg"
@@ -20,7 +20,6 @@ type Options struct {
 	DryRun     bool
 	SkipIssue  bool
 	SkipEnable bool
-	Force      bool
 	Stdout     io.Writer
 	Stderr     io.Writer
 }
@@ -87,14 +86,18 @@ func WriteManagedConfig(cfg config.Config, opts Options) error {
 }
 
 func WriteUnits(cfg config.Config, opts Options) error {
-	units := map[string]string{
-		systemd.UnitPath(cfg.Paths.SystemdDir, cfg.Paths.RuntimeService):  systemd.RenderXrayService(cfg),
-		systemd.UnitPath(cfg.Paths.SystemdDir, cfg.Paths.FallbackService): systemd.RenderFallbackService(cfg),
-		systemd.UnitPath(cfg.Paths.SystemdDir, cfg.Paths.RenewService):    systemd.RenderRenewService(cfg),
-		systemd.UnitPath(cfg.Paths.SystemdDir, cfg.Paths.RenewTimer):      systemd.RenderRenewTimer(cfg),
+	type unit struct {
+		path    string
+		content string
 	}
-	for path, content := range units {
-		if err := writeBytes(path, []byte(content), 0o644, opts); err != nil {
+	units := []unit{
+		{systemd.UnitPath(cfg.Paths.SystemdDir, cfg.Paths.FallbackService), systemd.RenderFallbackService(cfg)},
+		{systemd.UnitPath(cfg.Paths.SystemdDir, cfg.Paths.RuntimeService), systemd.RenderXrayService(cfg)},
+		{systemd.UnitPath(cfg.Paths.SystemdDir, cfg.Paths.RenewService), systemd.RenderRenewService(cfg)},
+		{systemd.UnitPath(cfg.Paths.SystemdDir, cfg.Paths.RenewTimer), systemd.RenderRenewTimer(cfg)},
+	}
+	for _, u := range units {
+		if err := writeBytes(u.path, []byte(u.content), 0o644, opts); err != nil {
 			return err
 		}
 	}
@@ -152,7 +155,7 @@ func installSelfBinary(target string, opts Options) error {
 		}
 		return nil
 	}
-	return copyFile(current, target, 0o755)
+	return ioutil.CopyFile(current, target, 0o755)
 }
 
 func ensureACMEEnvFile(path string, opts Options) error {
@@ -179,7 +182,7 @@ func ensureACMESh(ctx context.Context, cfg config.Config, opts Options) error {
 	}
 	defer os.RemoveAll(tmpDir)
 	scriptPath := filepath.Join(tmpDir, "get.acme.sh")
-	if err := downloadToFile(ctx, "https://get.acme.sh", scriptPath); err != nil {
+	if err := ioutil.DownloadToFile(ctx, "https://get.acme.sh", scriptPath); err != nil {
 		return err
 	}
 	cmd := exec.CommandContext(ctx, "/bin/sh", scriptPath, "email="+cfg.TLS.Email)
@@ -240,7 +243,7 @@ func ensurePackage(ctx context.Context, name string, opts Options) error {
 	for _, argList := range args {
 		if opts.DryRun {
 			if opts.Stdout != nil {
-				fmt.Fprintf(opts.Stdout, "%s %s\n", manager, joinArgs(argList))
+				fmt.Fprintf(opts.Stdout, "%s %s\n", manager, ioutil.JoinArgs(argList))
 			}
 			continue
 		}
@@ -280,57 +283,7 @@ func writeBytes(path string, data []byte, mode os.FileMode, opts Options) error 
 	return os.WriteFile(path, data, mode)
 }
 
-func copyFile(src, dest string, mode os.FileMode) error {
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-	out, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, mode)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-	if _, err := io.Copy(out, in); err != nil {
-		return err
-	}
-	return out.Close()
-}
-
-func downloadToFile(ctx context.Context, url, path string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return err
-	}
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return fmt.Errorf("download %s failed with %s", url, resp.Status)
-	}
-	out, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
-	if err != nil {
-		return err
-	}
-	defer out.Close()
-	_, err = io.Copy(out, resp.Body)
-	return err
-}
-
 func hasCommand(name string) bool {
 	_, err := exec.LookPath(name)
 	return err == nil
-}
-
-func joinArgs(args []string) string {
-	if len(args) == 0 {
-		return ""
-	}
-	out := args[0]
-	for _, arg := range args[1:] {
-		out += " " + arg
-	}
-	return out
 }

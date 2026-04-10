@@ -18,9 +18,10 @@ import (
 	"github.com/zhaodengfeng/dtsw/internal/runtime/xray"
 	"github.com/zhaodengfeng/dtsw/internal/systemd"
 	"github.com/zhaodengfeng/dtsw/internal/tlscfg"
+	"github.com/zhaodengfeng/dtsw/internal/wizard"
 )
 
-const Version = "0.1.0"
+const Version = "0.2.0"
 
 func Run(args []string, stdout, stderr io.Writer) int {
 	if len(args) < 2 {
@@ -32,11 +33,13 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	case "help", "-h", "--help":
 		printUsage(stdout)
 		return 0
-	case "version":
+	case "version", "-v", "--version":
 		fmt.Fprintln(stdout, Version)
 		return 0
 	case "init":
 		return runInit(args[2:], stdout, stderr)
+	case "setup":
+		return runSetup(stdout, stderr)
 	case "validate":
 		return runValidate(args[2:], stdout, stderr)
 	case "render":
@@ -99,6 +102,46 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	fmt.Fprintf(stdout, "wrote %s\n", *out)
+	return 0
+}
+
+func runSetup(stdout, stderr io.Writer) int {
+	result, err := wizard.Run(os.Stdin, stdout, stderr)
+	if err != nil {
+		fmt.Fprintf(stderr, "setup wizard failed: %v\n", err)
+		return 1
+	}
+	if err := os.MkdirAll(filepath.Dir(result.ConfigPath), 0o755); err != nil {
+		fmt.Fprintf(stderr, "create config directory: %v\n", err)
+		return 1
+	}
+	if err := config.Write(result.ConfigPath, result.Config); err != nil {
+		fmt.Fprintf(stderr, "write config: %v\n", err)
+		return 1
+	}
+	fmt.Fprintf(stdout, "\n✓ Configuration saved to %s\n", result.ConfigPath)
+
+	if !result.AutoStart {
+		fmt.Fprintln(stdout, "\nTo install later, run:")
+		fmt.Fprintf(stdout, "  sudo dtsw install --config %s\n", result.ConfigPath)
+		return 0
+	}
+
+	fmt.Fprintln(stdout, "\nStarting installation...")
+	fmt.Fprintln(stdout, "")
+	if err := install.Execute(context.Background(), result.Config, install.Options{
+		Stdout: stdout,
+		Stderr: stderr,
+	}); err != nil {
+		fmt.Fprintf(stderr, "install failed: %v\n", err)
+		return 1
+	}
+	fmt.Fprintln(stdout, "")
+	fmt.Fprintln(stdout, "✓ Installation completed successfully!")
+	fmt.Fprintln(stdout, "")
+	fmt.Fprintln(stdout, "Next steps:")
+	fmt.Fprintf(stdout, "  dtsw status --config %s\n", result.ConfigPath)
+	fmt.Fprintf(stdout, "  dtsw users url --config %s --name primary\n", result.ConfigPath)
 	return 0
 }
 
@@ -534,7 +577,8 @@ func printUsage(out io.Writer) {
 DTSW (Does Trojan still work?)
 
 Usage:
-  dtsw init [flags]
+  dtsw setup                          Interactive setup wizard
+  dtsw init [flags]                   Generate config from flags
   dtsw validate --config path
   dtsw render xray --config path
   dtsw render systemd --config path --unit xray

@@ -56,10 +56,10 @@ func Issue(ctx context.Context, cfg config.Config, opts Options) error {
 	if err != nil {
 		return err
 	}
-	if err := run(ctx, cfg.Paths.ACMEBinary, argsWithEnvHint(cfg, issueArgs), opts, cfg.Paths.ACMEEnvFile); err != nil {
+	if err := run(ctx, cfg.Paths.ACMEBinary, issueArgs, opts, cfg.Paths.ACMEEnvFile); err != nil {
 		return err
 	}
-	return run(ctx, cfg.Paths.ACMEBinary, argsWithEnvHint(cfg, installArgs), opts, cfg.Paths.ACMEEnvFile)
+	return run(ctx, cfg.Paths.ACMEBinary, installArgs, opts, cfg.Paths.ACMEEnvFile)
 }
 
 func Renew(ctx context.Context, cfg config.Config, opts Options) error {
@@ -84,10 +84,10 @@ func Renew(ctx context.Context, cfg config.Config, opts Options) error {
 	if err != nil {
 		return err
 	}
-	if err := run(ctx, cfg.Paths.ACMEBinary, argsWithEnvHint(cfg, renewArgs), opts, cfg.Paths.ACMEEnvFile); err != nil {
+	if err := run(ctx, cfg.Paths.ACMEBinary, renewArgs, opts, cfg.Paths.ACMEEnvFile); err != nil {
 		return err
 	}
-	return run(ctx, cfg.Paths.ACMEBinary, argsWithEnvHint(cfg, installArgs), opts, cfg.Paths.ACMEEnvFile)
+	return run(ctx, cfg.Paths.ACMEBinary, installArgs, opts, cfg.Paths.ACMEEnvFile)
 }
 
 func BuildIssueCommands(cfg config.Config) ([]string, []string, error) {
@@ -230,6 +230,4 @@ func ensureTLSDirs(cfg config.Config, opts Options) error {
 	return nil
 }
 
-func argsWithEnvHint(_ config.Config, args []string) []string {
-	return args
-}
+

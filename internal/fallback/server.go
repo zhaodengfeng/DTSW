@@ -4,6 +4,9 @@ import (
 	"context"
 	"html/template"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/zhaodengfeng/dtsw/internal/config"
@@ -48,6 +51,9 @@ func Serve(ctx context.Context, cfg config.Config) error {
 		Handler:           mux,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
+
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	go func() {
 		<-ctx.Done()

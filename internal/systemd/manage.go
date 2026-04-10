@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"os/exec"
+
+	"github.com/zhaodengfeng/dtsw/internal/ioutil"
 )
 
 type CommandOptions struct {
@@ -44,7 +46,7 @@ func IsEnabled(ctx context.Context, unit string) bool {
 func run(ctx context.Context, opts CommandOptions, name string, args ...string) error {
 	if opts.DryRun {
 		if opts.Stdout != nil {
-			fmt.Fprintf(opts.Stdout, "%s %s\n", name, joinArgs(args))
+			fmt.Fprintf(opts.Stdout, "%s %s\n", name, ioutil.JoinArgs(args))
 		}
 		return nil
 	}
@@ -54,13 +56,4 @@ func run(ctx context.Context, opts CommandOptions, name string, args ...string) 
 	return cmd.Run()
 }
 
-func joinArgs(args []string) string {
-	if len(args) == 0 {
-		return ""
-	}
-	out := args[0]
-	for _, arg := range args[1:] {
-		out += " " + arg
-	}
-	return out
-}
+
