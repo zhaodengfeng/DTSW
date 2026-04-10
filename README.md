@@ -12,45 +12,43 @@ DTSW is a ground-up rewrite inspired by `easytrojan`, but it intentionally remov
 
 ## One-line install
 
-Download the installer from the latest published release, verify the binary checksum, install `dtsw`, and automatically start the interactive setup wizard:
+Download the installer from the latest published release, verify the binary checksum, install `dtsw`, and immediately start the interactive setup wizard:
 
 ```bash
 curl -fsSL https://github.com/zhaodengfeng/DTSW/releases/latest/download/install.sh | bash
 ```
 
-This release-based installer keeps the script and downloaded binary on the same published release line instead of mixing `main` with an older release asset.
+After setup finishes, DTSW now:
 
-## Setup modes
+- saves the configuration
+- installs or repairs the server automatically when running as root
+- reuses an existing valid certificate if one is already present
+- prints the client-ready connection details
+- opens the management panel automatically so the user can keep choosing actions without typing commands
 
-For a full guided install on a server, run:
+## Interactive flow
 
-```bash
-sudo dtsw setup
-```
+The normal user flow is menu-driven:
 
-If you run setup without root, DTSW now defaults to a local config path and writes the config safely, then tells you which `sudo dtsw install --config ...` command to run next.
+1. Run the release installer.
+2. Answer the guided setup questions.
+3. Let DTSW install the server.
+4. Use the management panel to view client information, inspect status, repair the installation, upgrade Xray, renew certificates, or list users.
 
-For day-to-day management after install, open the panel:
+Running `dtsw` without arguments now opens the interactive launcher. If DTSW finds a saved configuration, the launcher lets you:
 
-```bash
-sudo dtsw panel --config /etc/dtsw/config.json
-```
-
-## Manual setup
-
-If you prefer the flag-based path:
-
-```bash
-dtsw init --domain trojan.example.com --email admin@example.com --password change-me
-sudo dtsw install --config configs/dtsw.example.json
-```
+- open the management panel
+- install or repair with the saved configuration
+- show the primary client configuration
+- rerun guided setup
 
 ## Current scope
 
 Implemented now:
 
 - interactive setup wizard with automatic installation when run as root
-- interactive management panel with one-click Xray upgrades
+- interactive launcher for zero-argument startup
+- interactive management panel with one-click Xray upgrades and repair actions
 - initialize, validate, and render DTSW/Xray config
 - generate runtime, fallback, and renewal `systemd` units
 - install DTSW, pinned `acme.sh`, pinned Xray, config files, and services on Linux
@@ -75,95 +73,15 @@ Not implemented yet:
 - the default runtime version is pinned in code and currently set to `v26.1.13`
 - the default `acme.sh` version is pinned in code and currently set to `3.1.2`
 
-## Quick start
+## Advanced commands
 
-Run the release installer:
-
-```bash
-curl -fsSL https://github.com/zhaodengfeng/DTSW/releases/latest/download/install.sh | bash
-```
-
-Or start the wizard directly:
+The interactive menus are the primary path, but command-based operations still exist for automation and debugging:
 
 ```bash
-sudo dtsw setup
-```
-
-Generate a starter config manually:
-
-```bash
-dtsw init --domain trojan.example.com --email admin@example.com --password change-me
-```
-
-Validate it:
-
-```bash
-dtsw validate --config configs/dtsw.example.json
-```
-
-Preview the install flow without touching the machine:
-
-```bash
-dtsw install --config configs/dtsw.example.json --dry-run
-```
-
-Install on a Linux host as root:
-
-```bash
-sudo dtsw install --config /etc/dtsw/config.json
-```
-
-If DTSW finds an existing valid certificate and key in its configured paths during reinstall, it now reuses them instead of requesting a new certificate.
-
-After installation, DTSW prints the primary client connection details and import URL so you can copy them directly into your client.
-
-Check runtime and certificate state:
-
-```bash
+dtsw
 dtsw status --config /etc/dtsw/config.json
 dtsw doctor --config /etc/dtsw/config.json
-sudo dtsw panel --config /etc/dtsw/config.json
-```
-
-Manage users:
-
-```bash
-dtsw users list --config /etc/dtsw/config.json
-dtsw users add --config /etc/dtsw/config.json --name secondary --password s3cret
-dtsw users del --config /etc/dtsw/config.json --name secondary
-```
-
-Export a client URL:
-
-```bash
-dtsw users url --config /etc/dtsw/config.json --name primary
-```
-
-Inspect supported certificate issuers and runtime versions:
-
-```bash
-dtsw tls issuers
-dtsw runtime current --config /etc/dtsw/config.json
-dtsw runtime latest
-```
-
-Upgrade Xray without editing the config by hand:
-
-```bash
 sudo dtsw runtime upgrade --config /etc/dtsw/config.json --latest
-```
-
-Preview issuance or renewal commands:
-
-```bash
-dtsw issue --config /etc/dtsw/config.json --dry-run
-dtsw renew --config /etc/dtsw/config.json --dry-run
-```
-
-Remove managed services and config:
-
-```bash
-sudo dtsw uninstall --config /etc/dtsw/config.json
 ```
 
 ## Design choices

@@ -30,17 +30,23 @@ func runPanel(args []string, stdout, stderr io.Writer) int {
 	if err := fs.Parse(args); err != nil {
 		return 1
 	}
+	return openPanelSession(*configPath, stdout, stderr)
+}
 
+func openPanelSession(configPath string, stdout, stderr io.Writer) int {
 	input, cleanup, err := openSetupInput()
 	if err != nil {
 		fmt.Fprintf(stderr, "panel requires an interactive terminal: %v\n", err)
 		return 1
 	}
 	defer cleanup()
+	return runPanelWithInput(configPath, input, stdout, stderr)
+}
 
+func runPanelWithInput(configPath string, input io.Reader, stdout, stderr io.Writer) int {
 	reader := bufio.NewReader(input)
 	for {
-		cfg, err := config.Load(*configPath)
+		cfg, err := config.Load(configPath)
 		if err != nil {
 			fmt.Fprintf(stderr, "load config: %v\n", err)
 			return 1
@@ -64,6 +70,26 @@ func runPanel(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintln(stdout, "Leaving DTSW panel.")
 			return 0
 		case "1":
+			printClientConfiguration(stdout, cfg)
+			waitForEnter(reader, stdout)
+		case "2":
+			printStatusReport(stdout, cfg)
+			waitForEnter(reader, stdout)
+		case "3":
+			if err := ensureRootForPanelAction(); err != nil {
+				fmt.Fprintln(stderr, err)
+				waitForEnter(reader, stdout)
+				continue
+			}
+			if err := install.Execute(context.Background(), cfg, install.Options{Stdout: stdout, Stderr: stderr}); err != nil {
+				fmt.Fprintf(stderr, "install or repair: %v\n", err)
+			} else {
+				fmt.Fprintln(stdout, "Server installation or repair completed.")
+				fmt.Fprintln(stdout, "")
+				printClientConfiguration(stdout, cfg)
+			}
+			waitForEnter(reader, stdout)
+		case "4":
 			if state.LatestError != nil {
 				fmt.Fprintf(stderr, "latest xray version: %v\n", state.LatestError)
 				waitForEnter(reader, stdout)
@@ -74,25 +100,25 @@ func runPanel(args []string, stdout, stderr io.Writer) int {
 				waitForEnter(reader, stdout)
 				continue
 			}
-			if err := upgradeRuntime(context.Background(), *configPath, cfg, state.LatestVersion, install.Options{SkipIssue: true, Stdout: stdout, Stderr: stderr}); err != nil {
+			if err := upgradeRuntime(context.Background(), configPath, cfg, state.LatestVersion, install.Options{SkipIssue: true, Stdout: stdout, Stderr: stderr}); err != nil {
 				fmt.Fprintf(stderr, "upgrade runtime: %v\n", err)
 			} else {
 				fmt.Fprintf(stdout, "Xray upgraded to %s\n", state.LatestVersion)
 			}
 			waitForEnter(reader, stdout)
-		case "2":
+		case "5":
 			if err := ensureRootForPanelAction(); err != nil {
 				fmt.Fprintln(stderr, err)
 				waitForEnter(reader, stdout)
 				continue
 			}
-			if err := upgradeRuntime(context.Background(), *configPath, cfg, cfg.Runtime.Version, install.Options{SkipIssue: true, Stdout: stdout, Stderr: stderr}); err != nil {
+			if err := upgradeRuntime(context.Background(), configPath, cfg, cfg.Runtime.Version, install.Options{SkipIssue: true, Stdout: stdout, Stderr: stderr}); err != nil {
 				fmt.Fprintf(stderr, "sync runtime: %v\n", err)
 			} else {
 				fmt.Fprintf(stdout, "Runtime synced to configured version %s\n", cfg.Runtime.Version)
 			}
 			waitForEnter(reader, stdout)
-		case "3":
+		case "6":
 			if err := ensureRootForPanelAction(); err != nil {
 				fmt.Fprintln(stderr, err)
 				waitForEnter(reader, stdout)
@@ -104,18 +130,8 @@ func runPanel(args []string, stdout, stderr io.Writer) int {
 				fmt.Fprintln(stdout, "Certificate renewal completed.")
 			}
 			waitForEnter(reader, stdout)
-		case "4":
-			user, ok := preferredPanelUser(cfg)
-			if !ok {
-				fmt.Fprintln(stderr, "no users found in the config")
-			} else {
-				fmt.Fprintln(stdout, trojanURL(cfg, user))
-			}
-			waitForEnter(reader, stdout)
-		case "5":
-			for _, user := range cfg.Users {
-				fmt.Fprintf(stdout, "- %s\n", user.Name)
-			}
+		case "7":
+			printUserList(stdout, cfg)
 			waitForEnter(reader, stdout)
 		default:
 			fmt.Fprintf(stderr, "unknown selection %q\n", choice)
@@ -161,11 +177,13 @@ func renderPanel(stdout io.Writer, cfg config.Config, state panelState) {
 	}
 	fmt.Fprintf(stdout, "  Users:             %d\n", len(cfg.Users))
 	fmt.Fprintln(stdout, "")
-	fmt.Fprintln(stdout, "  1) Upgrade Xray to latest stable")
-	fmt.Fprintln(stdout, "  2) Sync installed Xray to configured version")
-	fmt.Fprintln(stdout, "  3) Renew TLS certificate now")
-	fmt.Fprintln(stdout, "  4) Show primary Trojan URL")
-	fmt.Fprintln(stdout, "  5) List users")
+	fmt.Fprintln(stdout, "  1) Show client configuration")
+	fmt.Fprintln(stdout, "  2) Show runtime and certificate status")
+	fmt.Fprintln(stdout, "  3) Install or repair this server")
+	fmt.Fprintln(stdout, "  4) Upgrade Xray to latest stable")
+	fmt.Fprintln(stdout, "  5) Sync installed Xray to configured version")
+	fmt.Fprintln(stdout, "  6) Renew TLS certificate now")
+	fmt.Fprintln(stdout, "  7) List users")
 	fmt.Fprintln(stdout, "  0) Exit")
 	fmt.Fprintln(stdout, "")
 }
@@ -188,7 +206,7 @@ func waitForEnter(reader *bufio.Reader, stdout io.Writer) {
 
 func ensureRootForPanelAction() error {
 	if os.Geteuid() != 0 {
-		return fmt.Errorf("this action requires root; rerun the panel with sudo")
+		return fmt.Errorf("this action requires root; restart DTSW with root privileges and choose it again")
 	}
 	return nil
 }

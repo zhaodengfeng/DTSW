@@ -99,7 +99,7 @@ log "launching interactive setup..."
 echo ""
 
 if [[ ! -r /dev/tty ]]; then
-  echo "no interactive TTY detected; run 'sudo ${BINARY_NAME} setup' manually" >&2
+  echo "no interactive TTY detected; start DTSW later in a terminal to continue setup" >&2
   exit 1
 fi
 

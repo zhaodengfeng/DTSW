@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/zhaodengfeng/dtsw/internal/config"
 	"github.com/zhaodengfeng/dtsw/internal/doctor"
@@ -21,12 +20,11 @@ import (
 	"github.com/zhaodengfeng/dtsw/internal/wizard"
 )
 
-const Version = "0.2.2"
+const Version = "0.2.4"
 
 func Run(args []string, stdout, stderr io.Writer) int {
 	if len(args) < 2 {
-		printUsage(stdout)
-		return 0
+		return runLauncher(stdout, stderr)
 	}
 
 	switch args[1] {
@@ -112,22 +110,26 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 func runSetup(stdout, stderr io.Writer) int {
 	input, cleanup, err := openSetupInput()
 	if err != nil {
-		fmt.Fprintf(stderr, "setup requires an interactive terminal: %v\n", err)
+		fmt.Fprintf(stderr, "setup requires an interactive terminal: %v
+", err)
 		return 1
 	}
 	defer cleanup()
 
 	result, err := wizard.Run(input, stdout, stderr)
 	if err != nil {
-		fmt.Fprintf(stderr, "setup wizard failed: %v\n", err)
+		fmt.Fprintf(stderr, "setup wizard failed: %v
+", err)
 		return 1
 	}
 	if err := os.MkdirAll(filepath.Dir(result.ConfigPath), 0o755); err != nil {
-		fmt.Fprintf(stderr, "create config directory: %v\n", err)
+		fmt.Fprintf(stderr, "create config directory: %v
+", err)
 		return 1
 	}
 	if err := config.Write(result.ConfigPath, result.Config); err != nil {
-		fmt.Fprintf(stderr, "write config: %v\n", err)
+		fmt.Fprintf(stderr, "write config: %v
+", err)
 		return 1
 	}
 
@@ -135,37 +137,40 @@ func runSetup(stdout, stderr io.Writer) int {
 	if abs, err := filepath.Abs(result.ConfigPath); err == nil {
 		displayConfigPath = abs
 	}
-	fmt.Fprintf(stdout, "\n✓ Configuration saved to %s\n", displayConfigPath)
+	fmt.Fprintf(stdout, "
+✓ Configuration saved to %s
+", displayConfigPath)
 
-	installCmd := fmt.Sprintf("sudo dtsw install --config %q", displayConfigPath)
 	if !result.AutoStart {
-		fmt.Fprintln(stdout, "\nTo install later, run:")
-		fmt.Fprintf(stdout, "  %s\n", installCmd)
+		fmt.Fprintln(stdout, "
+Configuration saved.")
+		fmt.Fprintln(stdout, "Restart DTSW later and choose the install or repair option from the menu.")
 		return 0
 	}
 
 	if os.Geteuid() != 0 {
-		fmt.Fprintln(stdout, "\nAutomatic installation requires root.")
-		fmt.Fprintln(stdout, "Run this next:")
-		fmt.Fprintf(stdout, "  %s\n", installCmd)
+		fmt.Fprintln(stdout, "
+Automatic installation requires root.")
+		fmt.Fprintln(stdout, "Restart DTSW as root later and choose the install or repair option from the menu.")
 		return 0
 	}
 
-	fmt.Fprintln(stdout, "\nStarting installation...")
+	fmt.Fprintln(stdout, "
+Starting installation...")
 	fmt.Fprintln(stdout, "")
 	if err := install.Execute(context.Background(), result.Config, install.Options{
 		Stdout: stdout,
 		Stderr: stderr,
 	}); err != nil {
-		fmt.Fprintf(stderr, "install failed: %v\n", err)
+		fmt.Fprintf(stderr, "install failed: %v
+", err)
 		return 1
 	}
 	fmt.Fprintln(stdout, "")
 	fmt.Fprintln(stdout, "✓ Installation completed successfully!")
-	fmt.Fprintln(stdout, "")
-	printInstallSummary(stdout, displayConfigPath, result.Config)
-	return 0
+	return completeInstallFlow(displayConfigPath, result.Config, stdout, stderr)
 }
+
 func runValidate(args []string, stdout, stderr io.Writer) int {
 	cfg, _, ok := loadConfigFlags("validate", args, stderr)
 	if !ok {
@@ -261,7 +266,8 @@ func runInstall(args []string, stdout, stderr io.Writer) int {
 	}
 	cfg, err := config.Load(*configPath)
 	if err != nil {
-		fmt.Fprintf(stderr, "load config: %v\n", err)
+		fmt.Fprintf(stderr, "load config: %v
+", err)
 		return 1
 	}
 	if err := install.Execute(context.Background(), cfg, install.Options{
@@ -271,12 +277,13 @@ func runInstall(args []string, stdout, stderr io.Writer) int {
 		Stdout:     stdout,
 		Stderr:     stderr,
 	}); err != nil {
-		fmt.Fprintf(stderr, "install failed: %v\n", err)
+		fmt.Fprintf(stderr, "install failed: %v
+", err)
 		return 1
 	}
 	if !*dryRun {
 		fmt.Fprintln(stdout, "install completed")
-		printInstallSummary(stdout, *configPath, cfg)
+		return completeInstallFlow(*configPath, cfg, stdout, stderr)
 	}
 	return 0
 }
@@ -286,31 +293,9 @@ func runStatus(args []string, stdout, stderr io.Writer) int {
 	if !ok {
 		return 1
 	}
-	fmt.Fprintf(stdout, "Name: %s\n", cfg.Name)
-	fmt.Fprintf(stdout, "Domain: %s\n", cfg.Server.Domain)
-	fmt.Fprintf(stdout, "Port: %d\n", cfg.Server.Port)
-	fmt.Fprintf(stdout, "Runtime: %s %s\n", cfg.Runtime.Type, cfg.Runtime.Version)
-	fmt.Fprintf(stdout, "Issuer: %s\n", cfg.TLS.Issuer)
-	fmt.Fprintf(stdout, "Challenge: %s\n", cfg.TLS.Challenge)
-	fmt.Fprintf(stdout, "Users: %d\n", len(cfg.Users))
-	if version, err := xray.CurrentVersion(cfg.Paths.XrayBinary); err == nil {
-		fmt.Fprintf(stdout, "Installed Xray: %s\n", version)
-	} else {
-		fmt.Fprintf(stdout, "Installed Xray: unavailable (%v)\n", err)
-	}
-	if needsRenewal, notAfter, err := tlscfg.CertificateNeedsRenewal(cfg.TLS.CertificateFile, cfg.TLS.RenewBeforeDays, time.Now()); err == nil {
-		fmt.Fprintf(stdout, "Certificate Expires: %s\n", notAfter.Format(time.RFC3339))
-		fmt.Fprintf(stdout, "Certificate Renewal Needed: %t\n", needsRenewal)
-	} else {
-		fmt.Fprintf(stdout, "Certificate: unavailable (%v)\n", err)
-	}
-	ctx := context.Background()
-	fmt.Fprintf(stdout, "Fallback Service: enabled=%t active=%t\n", systemd.IsEnabled(ctx, cfg.Paths.FallbackService), systemd.IsActive(ctx, cfg.Paths.FallbackService))
-	fmt.Fprintf(stdout, "Runtime Service: enabled=%t active=%t\n", systemd.IsEnabled(ctx, cfg.Paths.RuntimeService), systemd.IsActive(ctx, cfg.Paths.RuntimeService))
-	fmt.Fprintf(stdout, "Renew Timer: enabled=%t active=%t\n", systemd.IsEnabled(ctx, cfg.Paths.RenewTimer), systemd.IsActive(ctx, cfg.Paths.RenewTimer))
+	printStatusReport(stdout, cfg)
 	return 0
 }
-
 func runDoctor(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("doctor", flag.ContinueOnError)
 	fs.SetOutput(stderr)
@@ -610,9 +595,10 @@ func printUsage(out io.Writer) {
 DTSW (Does Trojan still work?)
 
 Usage:
-  dtsw setup                          Interactive setup wizard
+  dtsw                                  Open the interactive launcher
+  dtsw setup                            Interactive setup wizard
   dtsw panel --config path              Interactive management panel
-  dtsw init [flags]                   Generate config from flags
+  dtsw init [flags]                     Generate config from flags
   dtsw validate --config path
   dtsw render xray --config path
   dtsw render systemd --config path --unit xray
