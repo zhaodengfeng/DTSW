@@ -137,6 +137,23 @@ func runPanelWithInput(configPath string, input io.Reader, stdout, stderr io.Wri
 			waitForEnter(reader, stdout)
 		case "7":
 			openUserPanel(configPath, cfg, reader, stdout, stderr)
+		case "8":
+			if err := ensureRootForPanelAction(); err != nil {
+				fmt.Fprintln(stderr, err)
+				waitForEnter(reader, stdout)
+				continue
+			}
+			removed, err := uninstallFromPanel(cfg, reader, stdout, stderr)
+			if err != nil {
+				fmt.Fprintf(stderr, "uninstall: %v\n", err)
+				waitForEnter(reader, stdout)
+				continue
+			}
+			if removed {
+				fmt.Fprintln(stdout, "DTSW uninstall completed.")
+				return 0
+			}
+			waitForEnter(reader, stdout)
 		default:
 			fmt.Fprintf(stderr, "unknown selection %q\n", choice)
 			waitForEnter(reader, stdout)
@@ -188,6 +205,7 @@ func renderPanel(stdout io.Writer, cfg config.Config, state panelState) {
 	fmt.Fprintln(stdout, "  5) Restore Xray to configured state")
 	fmt.Fprintln(stdout, "  6) Renew TLS certificate now")
 	fmt.Fprintln(stdout, "  7) Manage users")
+	fmt.Fprintln(stdout, "  8) Uninstall DTSW")
 	fmt.Fprintln(stdout, "  0) Exit")
 	fmt.Fprintln(stdout, "")
 }
@@ -369,6 +387,59 @@ func generatePanelPassword() string {
 func isAffirmative(value string) bool {
 	value = strings.TrimSpace(strings.ToLower(value))
 	return value == "y" || value == "yes"
+}
+
+func uninstallFromPanel(cfg config.Config, reader *bufio.Reader, stdout, stderr io.Writer) (bool, error) {
+	fmt.Fprintln(stdout, "Uninstall options:")
+	fmt.Fprintln(stdout, "  1) Remove services only and keep config, certificates, and binaries")
+	fmt.Fprintln(stdout, "  2) Remove services and DTSW-managed data, keep DTSW binary")
+	fmt.Fprintln(stdout, "  3) Remove everything including Xray, Caddy, data, and DTSW binary")
+	fmt.Fprintln(stdout, "  0) Cancel")
+
+	choice, err := panelPromptDefault(reader, stdout, "Select uninstall mode", "0")
+	if err != nil {
+		return false, err
+	}
+	mode := strings.TrimSpace(choice)
+	if mode == "0" || strings.EqualFold(mode, "cancel") {
+		fmt.Fprintln(stdout, "Uninstall cancelled.")
+		return false, nil
+	}
+
+	opts := install.RemoveOptions{
+		Stdout: stdout,
+		Stderr: stderr,
+	}
+	var confirmLabel string
+	switch mode {
+	case "1":
+		confirmLabel = "Remove DTSW services only? (y/n)"
+	case "2":
+		opts.PurgeData = true
+		confirmLabel = "Remove DTSW services and managed data? (y/n)"
+	case "3":
+		opts.PurgeData = true
+		opts.PurgeXray = true
+		opts.PurgeCaddy = true
+		opts.RemoveDTSW = true
+		confirmLabel = "Remove DTSW completely, including data and binaries? (y/n)"
+	default:
+		return false, fmt.Errorf("unknown uninstall selection %q", choice)
+	}
+
+	confirm, err := panelPromptDefault(reader, stdout, confirmLabel, "n")
+	if err != nil {
+		return false, err
+	}
+	if !isAffirmative(confirm) {
+		fmt.Fprintln(stdout, "Uninstall cancelled.")
+		return false, nil
+	}
+
+	if err := install.Remove(context.Background(), cfg, opts); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func preferredPanelUser(cfg config.Config) (config.User, bool) {

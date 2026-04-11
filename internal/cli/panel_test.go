@@ -25,6 +25,9 @@ func TestRenderPanelUsesRestoreLabel(t *testing.T) {
 	if strings.Contains(out.String(), "Sync installed Xray to configured version") {
 		t.Fatalf("panel output still contains old sync label: %q", out.String())
 	}
+	if !strings.Contains(out.String(), "Uninstall DTSW") {
+		t.Fatalf("panel output did not contain uninstall entry: %q", out.String())
+	}
 }
 
 func TestSelectUserFromConfigReturnsSelectedUser(t *testing.T) {
@@ -73,5 +76,21 @@ func TestPrintClientConfigurationForUserUsesSelectedUser(t *testing.T) {
 	}
 	if !strings.Contains(text, "Password:  secret-2") {
 		t.Fatalf("expected selected password in output, got %q", text)
+	}
+}
+
+func TestUninstallFromPanelCancel(t *testing.T) {
+	cfg := config.Example("trojan.example.com", "admin@example.com", "secret")
+	reader := bufio.NewReader(strings.NewReader("0\n"))
+	var out, errOut bytes.Buffer
+	removed, err := uninstallFromPanel(cfg, reader, &out, &errOut)
+	if err != nil {
+		t.Fatalf("uninstallFromPanel returned error: %v", err)
+	}
+	if removed {
+		t.Fatal("expected uninstall to be cancelled")
+	}
+	if !strings.Contains(out.String(), "Uninstall cancelled.") {
+		t.Fatalf("expected cancel message, got %q", out.String())
 	}
 }

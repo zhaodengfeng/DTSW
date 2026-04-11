@@ -14,6 +14,7 @@ type RemoveOptions struct {
 	DryRun     bool
 	PurgeData  bool
 	PurgeXray  bool
+	PurgeCaddy bool
 	RemoveDTSW bool
 	Stdout     io.Writer
 	Stderr     io.Writer
@@ -48,6 +49,9 @@ func Remove(ctx context.Context, cfg config.Config, opts RemoveOptions) error {
 	}
 	if opts.PurgeXray {
 		paths = append(paths, cfg.Paths.XrayBinary)
+	}
+	if opts.PurgeCaddy {
+		paths = append(paths, cfg.Paths.CaddyBinary)
 	}
 	if opts.RemoveDTSW {
 		paths = append(paths, cfg.Paths.DTSWBinary)

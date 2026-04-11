@@ -21,7 +21,7 @@ import (
 	"github.com/zhaodengfeng/dtsw/internal/wizard"
 )
 
-const Version = "0.3.0"
+const Version = "0.3.1"
 
 func Run(args []string, stdout, stderr io.Writer) int {
 	if len(args) < 2 {
@@ -496,6 +496,7 @@ func runUninstall(args []string, stdout, stderr io.Writer) int {
 	dryRun := fs.Bool("dry-run", false, "Print actions instead of removing files")
 	purgeData := fs.Bool("purge-data", false, "Remove /etc/dtsw and /var/lib/dtsw content")
 	purgeXray := fs.Bool("purge-xray", false, "Remove the Xray binary")
+	purgeCaddy := fs.Bool("purge-caddy", false, "Remove the Caddy binary")
 	removeDTSW := fs.Bool("remove-dtsw", false, "Remove the DTSW binary")
 	if err := fs.Parse(args); err != nil {
 		return 1
@@ -505,7 +506,7 @@ func runUninstall(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "load config: %v\n", err)
 		return 1
 	}
-	if err := install.Remove(context.Background(), cfg, install.RemoveOptions{DryRun: *dryRun, PurgeData: *purgeData, PurgeXray: *purgeXray, RemoveDTSW: *removeDTSW, Stdout: stdout, Stderr: stderr}); err != nil {
+	if err := install.Remove(context.Background(), cfg, install.RemoveOptions{DryRun: *dryRun, PurgeData: *purgeData, PurgeXray: *purgeXray, PurgeCaddy: *purgeCaddy, RemoveDTSW: *removeDTSW, Stdout: stdout, Stderr: stderr}); err != nil {
 		fmt.Fprintf(stderr, "uninstall failed: %v\n", err)
 		return 1
 	}
