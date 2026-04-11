@@ -147,9 +147,13 @@ func caddyChecksumFromFile(path, asset string) (string, error) {
 		if fields[len(fields)-1] != asset {
 			continue
 		}
-		return strings.ToLower(fields[0]), nil
+		sum := strings.ToLower(fields[0])
+		if len(sum) != 64 {
+			continue
+		}
+		return sum, nil
 	}
-	return "", fmt.Errorf("failed to find checksum for %s", asset)
+	return "", fmt.Errorf("failed to find sha256 checksum for %s", asset)
 }
 
 func sha256File(path string) (string, error) {
