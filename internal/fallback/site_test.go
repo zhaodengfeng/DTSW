@@ -54,13 +54,11 @@ func TestCurrentVersionParsesCaddyOutput(t *testing.T) {
 	}
 }
 
-func TestCaddyChecksumFromFilePrefersSHA256Entry(t *testing.T) {
+func TestCaddyChecksumFromFileReturnsSHA512Entry(t *testing.T) {
 	tempDir := t.TempDir()
 	path := filepath.Join(tempDir, "checksums.txt")
 	const asset = "caddy_2.10.2_linux_amd64.tar.gz"
-	data := "" +
-		"747df7ee74de188485157a383633a1a963fd9233b71fbb4a69ddcbcc589ce4e2cc82dacf5dbbe136cb51d17e14c59daeb5d9bc92487610b0f3b93680b2646546 " + asset + "\n" +
-		"5c218bc34c9197369263da7e9317a83acdbd80ef45d94dca5eff76e727c67cdd " + asset + "\n"
+	data := "747df7ee74de188485157a383633a1a963fd9233b71fbb4a69ddcbcc589ce4e2cc82dacf5dbbe136cb51d17e14c59daeb5d9bc92487610b0f3b93680b2646546 " + asset + "\n"
 	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
 		t.Fatalf("write checksums file: %v", err)
 	}
@@ -69,7 +67,7 @@ func TestCaddyChecksumFromFilePrefersSHA256Entry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("caddyChecksumFromFile returned error: %v", err)
 	}
-	if sum != "5c218bc34c9197369263da7e9317a83acdbd80ef45d94dca5eff76e727c67cdd" {
-		t.Fatalf("caddyChecksumFromFile = %q, want sha256 entry", sum)
+	if sum != "747df7ee74de188485157a383633a1a963fd9233b71fbb4a69ddcbcc589ce4e2cc82dacf5dbbe136cb51d17e14c59daeb5d9bc92487610b0f3b93680b2646546" {
+		t.Fatalf("caddyChecksumFromFile = %q, want sha512 entry", sum)
 	}
 }

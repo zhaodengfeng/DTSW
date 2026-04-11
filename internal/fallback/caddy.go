@@ -4,7 +4,7 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
-	"crypto/sha256"
+	"crypto/sha512"
 	"encoding/hex"
 	"fmt"
 	"io"
@@ -124,7 +124,7 @@ func verifyCaddyArchiveChecksum(archivePath, checksumsPath, asset string) error 
 	if err != nil {
 		return err
 	}
-	actual, err := sha256File(archivePath)
+	actual, err := sha512File(archivePath)
 	if err != nil {
 		return err
 	}
@@ -148,21 +148,21 @@ func caddyChecksumFromFile(path, asset string) (string, error) {
 			continue
 		}
 		sum := strings.ToLower(fields[0])
-		if len(sum) != 64 {
+		if len(sum) != 128 {
 			continue
 		}
 		return sum, nil
 	}
-	return "", fmt.Errorf("failed to find sha256 checksum for %s", asset)
+	return "", fmt.Errorf("failed to find checksum for %s", asset)
 }
 
-func sha256File(path string) (string, error) {
+func sha512File(path string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return "", err
 	}
 	defer f.Close()
-	h := sha256.New()
+	h := sha512.New()
 	if _, err := io.Copy(h, f); err != nil {
 		return "", err
 	}
