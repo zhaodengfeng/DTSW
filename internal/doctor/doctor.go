@@ -54,6 +54,11 @@ func Run(cfg config.Config, expectedIP string) []Result {
 	results = append(results, fileCheck(cfg.Paths.DTSWBinary, "DTSW binary"))
 	results = append(results, dirCheck(filepath.Dir(cfg.TLS.CertificateFile), "TLS directory"))
 	results = append(results, fileCheck(cfg.Paths.ACMEEnvFile, "ACME env file"))
+	if cfg.Fallback.Mode == config.FallbackCaddyStatic {
+		results = append(results, fileCheck(cfg.Paths.CaddyBinary, "Caddy binary"))
+		results = append(results, fileCheck(cfg.Paths.CaddyConfigFile, "Caddy config"))
+		results = append(results, dirCheck(cfg.Fallback.SiteRoot, "Fallback site root"))
+	}
 
 	if version, err := xray.CurrentVersion(cfg.Paths.XrayBinary); err == nil {
 		severity := SeverityPass

@@ -21,7 +21,11 @@ const (
 	ChallengeDNS01  = "dns-01"
 
 	DefaultXrayVersion   = "v26.1.13"
+	DefaultCaddyVersion  = "v2.10.2"
 	DefaultACMEShVersion = "3.1.2"
+
+	FallbackBuiltin     = "builtin"
+	FallbackCaddyStatic = "caddy-static"
 )
 
 type Config struct {
@@ -59,6 +63,8 @@ type TLSConfig struct {
 
 type FallbackConfig struct {
 	ListenAddress string `json:"listen_address"`
+	Mode          string `json:"mode,omitempty"`
+	SiteRoot      string `json:"site_root,omitempty"`
 	SiteTitle     string `json:"site_title"`
 	SiteMessage   string `json:"site_message"`
 	StatusCode    int    `json:"status_code"`
@@ -76,6 +82,8 @@ type PathsConfig struct {
 	DTSWConfigFile    string `json:"dtsw_config_file"`
 	DTSWBinary        string `json:"dtsw_binary"`
 	XrayBinary        string `json:"xray_binary"`
+	CaddyBinary       string `json:"caddy_binary"`
+	CaddyConfigFile   string `json:"caddy_config_file"`
 	ACMEBinary        string `json:"acme_binary"`
 	ACMEEnvFile       string `json:"acme_env_file"`
 	SystemdDir        string `json:"systemd_dir"`
@@ -93,6 +101,8 @@ func DefaultPaths() PathsConfig {
 		DTSWConfigFile:    "/etc/dtsw/config.json",
 		DTSWBinary:        "/usr/local/bin/dtsw",
 		XrayBinary:        "/usr/local/bin/xray",
+		CaddyBinary:       "/usr/local/bin/caddy",
+		CaddyConfigFile:   "/etc/dtsw/Caddyfile",
 		ACMEBinary:        "/usr/local/bin/acme.sh",
 		ACMEEnvFile:       "/etc/dtsw/acme.env",
 		SystemdDir:        "/etc/systemd/system",
@@ -109,7 +119,7 @@ func Example(domain, email, password string) Config {
 
 func ExampleWithVersion(domain, email, password, runtimeVersion string) Config {
 	paths := DefaultPaths()
-	return Config{
+	cfg := Config{
 		Name: "dtsw",
 		Runtime: RuntimeConfig{
 			Type:    RuntimeXray,
@@ -132,6 +142,8 @@ func ExampleWithVersion(domain, email, password, runtimeVersion string) Config {
 		},
 		Fallback: FallbackConfig{
 			ListenAddress: "127.0.0.1:8080",
+			Mode:          FallbackCaddyStatic,
+			SiteRoot:      filepath.Join(paths.DataDir, "site"),
 			SiteTitle:     "Service Unavailable",
 			SiteMessage:   "DTSW is online, but this endpoint does not accept direct web traffic.",
 			StatusCode:    404,
@@ -142,6 +154,8 @@ func ExampleWithVersion(domain, email, password, runtimeVersion string) Config {
 		}},
 		Paths: paths,
 	}
+	cfg.ApplyDefaults()
+	return cfg
 }
 
 func Load(path string) (Config, error) {
@@ -153,7 +167,87 @@ func Load(path string) (Config, error) {
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return cfg, err
 	}
+	cfg.ApplyDefaults()
 	return cfg, nil
+}
+
+func (c *Config) ApplyDefaults() {
+	paths := DefaultPaths()
+
+	if c.Paths.ConfigDir == "" {
+		c.Paths.ConfigDir = paths.ConfigDir
+	}
+	if c.Paths.DataDir == "" {
+		c.Paths.DataDir = paths.DataDir
+	}
+	if c.Paths.RuntimeConfigFile == "" {
+		c.Paths.RuntimeConfigFile = paths.RuntimeConfigFile
+	}
+	if c.Paths.DTSWConfigFile == "" {
+		c.Paths.DTSWConfigFile = paths.DTSWConfigFile
+	}
+	if c.Paths.DTSWBinary == "" {
+		c.Paths.DTSWBinary = paths.DTSWBinary
+	}
+	if c.Paths.XrayBinary == "" {
+		c.Paths.XrayBinary = paths.XrayBinary
+	}
+	if c.Paths.CaddyBinary == "" {
+		c.Paths.CaddyBinary = paths.CaddyBinary
+	}
+	if c.Paths.CaddyConfigFile == "" {
+		c.Paths.CaddyConfigFile = paths.CaddyConfigFile
+	}
+	if c.Paths.ACMEBinary == "" {
+		c.Paths.ACMEBinary = paths.ACMEBinary
+	}
+	if c.Paths.ACMEEnvFile == "" {
+		c.Paths.ACMEEnvFile = paths.ACMEEnvFile
+	}
+	if c.Paths.SystemdDir == "" {
+		c.Paths.SystemdDir = paths.SystemdDir
+	}
+	if c.Paths.RuntimeService == "" {
+		c.Paths.RuntimeService = paths.RuntimeService
+	}
+	if c.Paths.FallbackService == "" {
+		c.Paths.FallbackService = paths.FallbackService
+	}
+	if c.Paths.RenewService == "" {
+		c.Paths.RenewService = paths.RenewService
+	}
+	if c.Paths.RenewTimer == "" {
+		c.Paths.RenewTimer = paths.RenewTimer
+	}
+
+	if c.TLS.ACMEHome == "" {
+		c.TLS.ACMEHome = filepath.Join(c.Paths.DataDir, "acme")
+	}
+	if c.TLS.CertificateFile == "" {
+		c.TLS.CertificateFile = filepath.Join(c.Paths.DataDir, "tls", "fullchain.pem")
+	}
+	if c.TLS.PrivateKeyFile == "" {
+		c.TLS.PrivateKeyFile = filepath.Join(c.Paths.DataDir, "tls", "privkey.pem")
+	}
+
+	if c.Fallback.ListenAddress == "" {
+		c.Fallback.ListenAddress = "127.0.0.1:8080"
+	}
+	if c.Fallback.Mode == "" {
+		c.Fallback.Mode = FallbackBuiltin
+	}
+	if c.Fallback.SiteRoot == "" {
+		c.Fallback.SiteRoot = filepath.Join(c.Paths.DataDir, "site")
+	}
+	if c.Fallback.SiteTitle == "" {
+		c.Fallback.SiteTitle = "Service Unavailable"
+	}
+	if c.Fallback.SiteMessage == "" {
+		c.Fallback.SiteMessage = "DTSW is online, but this endpoint does not accept direct web traffic."
+	}
+	if c.Fallback.StatusCode == 0 {
+		c.Fallback.StatusCode = 404
+	}
 }
 
 func Write(path string, cfg Config) error {
@@ -227,14 +321,23 @@ func (c Config) Validate() error {
 	if _, _, err := net.SplitHostPort(c.Fallback.ListenAddress); err != nil {
 		problems = append(problems, "fallback.listen_address must be host:port")
 	}
-	if c.Fallback.StatusCode < 100 || c.Fallback.StatusCode > 599 {
-		problems = append(problems, "fallback.status_code must be between 100 and 599")
-	}
-	if c.Fallback.SiteTitle == "" {
-		problems = append(problems, "fallback.site_title is required")
-	}
-	if c.Fallback.SiteMessage == "" {
-		problems = append(problems, "fallback.site_message is required")
+	switch c.Fallback.Mode {
+	case FallbackBuiltin:
+		if c.Fallback.StatusCode < 100 || c.Fallback.StatusCode > 599 {
+			problems = append(problems, "fallback.status_code must be between 100 and 599")
+		}
+		if c.Fallback.SiteTitle == "" {
+			problems = append(problems, "fallback.site_title is required")
+		}
+		if c.Fallback.SiteMessage == "" {
+			problems = append(problems, "fallback.site_message is required")
+		}
+	case FallbackCaddyStatic:
+		if c.Fallback.SiteRoot == "" {
+			problems = append(problems, "fallback.site_root is required when fallback.mode is caddy-static")
+		}
+	default:
+		problems = append(problems, "fallback.mode must be builtin or caddy-static")
 	}
 
 	if len(c.Users) == 0 {
@@ -271,6 +374,12 @@ func (c Config) Validate() error {
 	}
 	if c.Paths.XrayBinary == "" {
 		problems = append(problems, "paths.xray_binary is required")
+	}
+	if c.Paths.CaddyBinary == "" {
+		problems = append(problems, "paths.caddy_binary is required")
+	}
+	if c.Paths.CaddyConfigFile == "" {
+		problems = append(problems, "paths.caddy_config_file is required")
 	}
 	if c.Paths.ACMEBinary == "" {
 		problems = append(problems, "paths.acme_binary is required")

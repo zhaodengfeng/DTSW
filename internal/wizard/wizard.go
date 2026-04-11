@@ -152,6 +152,8 @@ func run(stdin io.Reader, stdout, stderr io.Writer, isRoot bool) (Result, error)
 		},
 		Fallback: config.FallbackConfig{
 			ListenAddress: "127.0.0.1:8080",
+			Mode:          config.FallbackCaddyStatic,
+			SiteRoot:      paths.DataDir + "/site",
 			SiteTitle:     "Service Unavailable",
 			SiteMessage:   "DTSW is online, but this endpoint does not accept direct web traffic.",
 			StatusCode:    404,
@@ -183,6 +185,8 @@ func run(stdin io.Reader, stdout, stderr io.Writer, isRoot bool) (Result, error)
 	}
 	fmt.Fprintf(stdout, "  Config Path:  %s\n", configPath)
 	fmt.Fprintf(stdout, "  Runtime:      Xray %s\n", runtimeVersion)
+	fmt.Fprintln(stdout, "  Fallback:     Real website (Caddy static site)")
+	fmt.Fprintf(stdout, "  Site Root:    %s\n", cfg.Fallback.SiteRoot)
 	if runtimeNote != "" {
 		fmt.Fprintf(stdout, "  Runtime Note: %s\n", runtimeNote)
 	}

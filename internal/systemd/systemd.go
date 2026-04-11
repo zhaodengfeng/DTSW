@@ -34,7 +34,26 @@ WantedBy=multi-user.target
 }
 
 func RenderFallbackService(cfg config.Config) string {
-	return strings.TrimSpace(fmt.Sprintf(`
+	var service string
+	switch cfg.Fallback.Mode {
+	case config.FallbackCaddyStatic:
+		service = fmt.Sprintf(`
+[Unit]
+Description=DTSW Fallback Website
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=%s run --config %s --adapter caddyfile
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+`, cfg.Paths.CaddyBinary, cfg.Paths.CaddyConfigFile)
+	default:
+		service = fmt.Sprintf(`
 [Unit]
 Description=DTSW Fallback HTTP Service
 After=network-online.target
@@ -48,7 +67,9 @@ RestartSec=3
 
 [Install]
 WantedBy=multi-user.target
-`, cfg.Paths.DTSWBinary, cfg.Paths.DTSWConfigFile)) + "\n"
+`, cfg.Paths.DTSWBinary, cfg.Paths.DTSWConfigFile)
+	}
+	return strings.TrimSpace(service) + "\n"
 }
 
 func RenderRenewService(cfg config.Config) string {

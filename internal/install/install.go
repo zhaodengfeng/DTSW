@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/zhaodengfeng/dtsw/internal/config"
+	"github.com/zhaodengfeng/dtsw/internal/fallback"
 	"github.com/zhaodengfeng/dtsw/internal/ioutil"
 	"github.com/zhaodengfeng/dtsw/internal/runtime/xray"
 	"github.com/zhaodengfeng/dtsw/internal/systemd"
@@ -50,6 +51,9 @@ func Execute(ctx context.Context, cfg config.Config, opts Options) error {
 	if err := ensureACMESh(ctx, cfg, opts); err != nil {
 		return err
 	}
+	if err := ensureFallbackRuntime(ctx, cfg, opts); err != nil {
+		return err
+	}
 	if err := ensureXray(ctx, cfg, opts); err != nil {
 		return err
 	}
@@ -81,6 +85,9 @@ func Execute(ctx context.Context, cfg config.Config, opts Options) error {
 
 func WriteManagedConfig(cfg config.Config, opts Options) error {
 	if err := writeJSON(cfg.Paths.DTSWConfigFile, cfg, opts); err != nil {
+		return err
+	}
+	if err := writeFallbackAssets(cfg, opts); err != nil {
 		return err
 	}
 	renderer := xray.Renderer{}
@@ -129,8 +136,11 @@ func ensureDirectories(cfg config.Config, opts Options) error {
 		cfg.Paths.DataDir,
 		filepath.Dir(cfg.Paths.DTSWBinary),
 		filepath.Dir(cfg.Paths.XrayBinary),
+		filepath.Dir(cfg.Paths.CaddyBinary),
+		filepath.Dir(cfg.Paths.CaddyConfigFile),
 		filepath.Dir(cfg.TLS.CertificateFile),
 		cfg.TLS.ACMEHome,
+		cfg.Fallback.SiteRoot,
 		cfg.Paths.SystemdDir,
 	}
 	for _, path := range paths {
@@ -218,6 +228,23 @@ func ensureXray(ctx context.Context, cfg config.Config, opts Options) error {
 	})
 }
 
+func ensureFallbackRuntime(ctx context.Context, cfg config.Config, opts Options) error {
+	switch cfg.Fallback.Mode {
+	case config.FallbackBuiltin:
+		return nil
+	case config.FallbackCaddyStatic:
+		return fallback.InstallCaddy(ctx, cfg.Paths.CaddyBinary, fallback.InstallOptions{
+			DryRun: opts.DryRun,
+			Stdout: opts.Stdout,
+			Stderr: opts.Stderr,
+			GOOS:   "linux",
+			GOARCH: goruntime.GOARCH,
+		})
+	default:
+		return fmt.Errorf("unsupported fallback mode %q", cfg.Fallback.Mode)
+	}
+}
+
 func ensureCertificate(ctx context.Context, cfg config.Config, opts Options) error {
 	valid, notAfter, err := tlscfg.ExistingCertificateValid(cfg.TLS.CertificateFile, cfg.TLS.PrivateKeyFile, time.Now())
 	if err == nil && valid {
@@ -293,6 +320,20 @@ func writeJSON(path string, cfg config.Config, opts Options) error {
 	return config.Write(path, cfg)
 }
 
+func writeFallbackAssets(cfg config.Config, opts Options) error {
+	switch cfg.Fallback.Mode {
+	case config.FallbackBuiltin:
+		return nil
+	case config.FallbackCaddyStatic:
+		if err := writeBytes(cfg.Paths.CaddyConfigFile, []byte(fallback.RenderCaddyfile(cfg)), 0o644, opts); err != nil {
+			return err
+		}
+		return writeDefaultSite(cfg, opts)
+	default:
+		return fmt.Errorf("unsupported fallback mode %q", cfg.Fallback.Mode)
+	}
+}
+
 func writeBytes(path string, data []byte, mode os.FileMode, opts Options) error {
 	if opts.DryRun {
 		if opts.Stdout != nil {
@@ -304,6 +345,31 @@ func writeBytes(path string, data []byte, mode os.FileMode, opts Options) error 
 		return err
 	}
 	return os.WriteFile(path, data, mode)
+}
+
+func writeDefaultSite(cfg config.Config, opts Options) error {
+	files := fallback.DefaultSiteFiles(cfg)
+	if opts.DryRun {
+		for name := range files {
+			if opts.Stdout != nil {
+				fmt.Fprintf(opts.Stdout, "write %s\n", filepath.Join(cfg.Fallback.SiteRoot, name))
+			}
+		}
+		return nil
+	}
+
+	for name, data := range files {
+		targetPath := filepath.Join(cfg.Fallback.SiteRoot, name)
+		if _, err := os.Stat(targetPath); err == nil {
+			continue
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		if err := writeBytes(targetPath, data, 0o644, opts); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func acmeDownloadURL(version string) string {

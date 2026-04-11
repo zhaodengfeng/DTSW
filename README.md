@@ -7,7 +7,7 @@ DTSW is a ground-up rewrite inspired by `easytrojan`, but it intentionally remov
 - a Go control plane (`dtsw`)
 - Xray as the first Trojan runtime adapter
 - `acme.sh` as the ACME client for `Let's Encrypt` and `ZeroSSL`
-- a built-in fallback HTTP service
+- a Caddy-backed static fallback website for fresh installs
 - generated `systemd` units for runtime, fallback, and auto-renewal
 
 ## One-line install
@@ -51,7 +51,7 @@ Implemented now:
 - interactive management panel with one-click Xray upgrades, repair actions, and menu-driven user management
 - initialize, validate, and render DTSW/Xray config
 - generate runtime, fallback, and renewal `systemd` units
-- install DTSW, pinned `acme.sh`, pinned Xray, config files, and services on Linux
+- install DTSW, pinned `acme.sh`, pinned Xray, pinned Caddy, config files, fallback site content, and services on Linux
 - reuse an existing valid certificate on reinstall instead of requesting a new one
 - print client-ready connection details after installation
 - request and renew certificates with `Let's Encrypt` or `ZeroSSL`
@@ -71,6 +71,8 @@ Not implemented yet:
 - HTTP-01 requires TCP `80` to be reachable
 - DNS-01 requires provider credentials in `/etc/dtsw/acme.env`
 - first-time setup resolves the latest stable Xray release and writes it into the config; if lookup fails, DTSW falls back to the bundled version `v26.1.13`
+- fresh installs default to a Caddy-served static fallback website on `127.0.0.1:8080`
+- the default Caddy version is pinned in code and currently set to `v2.10.2`
 - the default `acme.sh` version is pinned in code and currently set to `3.1.2`
 
 ## Advanced commands
@@ -88,6 +90,6 @@ sudo dtsw runtime upgrade --config /etc/dtsw/config.json --latest
 
 - Domain ownership is mandatory. IP addresses, free wildcard-style domain shortcuts, and bundled public domains are out of scope.
 - Certificate lifecycle stays outside the runtime, so CA switching, diagnostics, and reload behavior are controlled by DTSW rather than embedded in the proxy engine.
-- Fallback traffic is handled by `dtsw fallback-serve`, so the first usable version does not need Nginx or Caddy just to answer plain HTTP traffic.
+- Fresh installs serve fallback traffic with a DTSW-managed Caddy static site, while the older built-in fallback page remains available as a compatibility mode in config.
 - Xray is the first runtime backend because it is a conservative default for a Trojan-focused migration path. The codebase keeps room for later runtime adapters.
 - Config files containing passwords are written with `0600` permissions for security.

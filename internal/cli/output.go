@@ -42,6 +42,10 @@ func printStatusReport(stdout io.Writer, cfg config.Config) {
 	fmt.Fprintf(stdout, "Domain: %s\n", cfg.Server.Domain)
 	fmt.Fprintf(stdout, "Port: %d\n", cfg.Server.Port)
 	fmt.Fprintf(stdout, "Runtime: %s %s\n", cfg.Runtime.Type, cfg.Runtime.Version)
+	fmt.Fprintf(stdout, "Fallback Mode: %s\n", cfg.Fallback.Mode)
+	if cfg.Fallback.Mode == config.FallbackCaddyStatic {
+		fmt.Fprintf(stdout, "Website Root: %s\n", cfg.Fallback.SiteRoot)
+	}
 	fmt.Fprintf(stdout, "Issuer: %s\n", cfg.TLS.Issuer)
 	fmt.Fprintf(stdout, "Challenge: %s\n", cfg.TLS.Challenge)
 	fmt.Fprintf(stdout, "Users: %d\n", len(cfg.Users))
