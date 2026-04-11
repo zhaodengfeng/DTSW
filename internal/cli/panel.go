@@ -3,16 +3,21 @@ package cli
 import (
 	"bufio"
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/zhaodengfeng/dtsw/internal/config"
 	"github.com/zhaodengfeng/dtsw/internal/install"
 	"github.com/zhaodengfeng/dtsw/internal/runtime/xray"
+	"github.com/zhaodengfeng/dtsw/internal/systemd"
 	"github.com/zhaodengfeng/dtsw/internal/tlscfg"
 )
 
@@ -115,7 +120,7 @@ func runPanelWithInput(configPath string, input io.Reader, stdout, stderr io.Wri
 			if err := upgradeRuntime(context.Background(), configPath, cfg, cfg.Runtime.Version, install.Options{SkipIssue: true, Stdout: stdout, Stderr: stderr}); err != nil {
 				fmt.Fprintf(stderr, "sync runtime: %v\n", err)
 			} else {
-				fmt.Fprintf(stdout, "Runtime synced to configured version %s\n", cfg.Runtime.Version)
+				fmt.Fprintf(stdout, "Xray restored to configured state using %s\n", cfg.Runtime.Version)
 			}
 			waitForEnter(reader, stdout)
 		case "6":
@@ -131,8 +136,7 @@ func runPanelWithInput(configPath string, input io.Reader, stdout, stderr io.Wri
 			}
 			waitForEnter(reader, stdout)
 		case "7":
-			printUserList(stdout, cfg)
-			waitForEnter(reader, stdout)
+			openUserPanel(configPath, cfg, reader, stdout, stderr)
 		default:
 			fmt.Fprintf(stderr, "unknown selection %q\n", choice)
 			waitForEnter(reader, stdout)
@@ -181,11 +185,190 @@ func renderPanel(stdout io.Writer, cfg config.Config, state panelState) {
 	fmt.Fprintln(stdout, "  2) Show runtime and certificate status")
 	fmt.Fprintln(stdout, "  3) Install or repair this server")
 	fmt.Fprintln(stdout, "  4) Upgrade Xray to latest stable")
-	fmt.Fprintln(stdout, "  5) Sync installed Xray to configured version")
+	fmt.Fprintln(stdout, "  5) Restore Xray to configured state")
 	fmt.Fprintln(stdout, "  6) Renew TLS certificate now")
-	fmt.Fprintln(stdout, "  7) List users")
+	fmt.Fprintln(stdout, "  7) Manage users")
 	fmt.Fprintln(stdout, "  0) Exit")
 	fmt.Fprintln(stdout, "")
+}
+
+func openUserPanel(configPath string, cfg config.Config, reader *bufio.Reader, stdout, stderr io.Writer) {
+	for {
+		renderUserPanel(stdout, cfg)
+		choice, err := panelPromptDefault(reader, stdout, "Select a user action", "1")
+		if err != nil {
+			fmt.Fprintf(stderr, "read selection: %v\n", err)
+			return
+		}
+		fmt.Fprintln(stdout, "")
+
+		switch strings.TrimSpace(choice) {
+		case "0", "q", "quit", "exit", "back":
+			return
+		case "1":
+			printUserList(stdout, cfg)
+			waitForEnter(reader, stdout)
+		case "2":
+			user, ok, err := selectUserFromConfig(reader, stdout, cfg, "Show configuration for which user")
+			if err != nil {
+				fmt.Fprintf(stderr, "select user: %v\n", err)
+			} else if ok {
+				printClientConfigurationForUser(stdout, cfg, user)
+			}
+			waitForEnter(reader, stdout)
+		case "3":
+			if err := ensureRootForPanelAction(); err != nil {
+				fmt.Fprintln(stderr, err)
+				waitForEnter(reader, stdout)
+				continue
+			}
+			updated, changed, err := addUserFromPanel(configPath, cfg, reader, stdout, stderr)
+			if err != nil {
+				fmt.Fprintf(stderr, "add user: %v\n", err)
+			} else if changed {
+				cfg = updated
+			}
+			waitForEnter(reader, stdout)
+		case "4":
+			if err := ensureRootForPanelAction(); err != nil {
+				fmt.Fprintln(stderr, err)
+				waitForEnter(reader, stdout)
+				continue
+			}
+			updated, changed, err := deleteUserFromPanel(configPath, cfg, reader, stdout, stderr)
+			if err != nil {
+				fmt.Fprintf(stderr, "delete user: %v\n", err)
+			} else if changed {
+				cfg = updated
+			}
+			waitForEnter(reader, stdout)
+		default:
+			fmt.Fprintf(stderr, "unknown selection %q\n", choice)
+			waitForEnter(reader, stdout)
+		}
+	}
+}
+
+func renderUserPanel(stdout io.Writer, cfg config.Config) {
+	fmt.Fprintln(stdout, "")
+	fmt.Fprintln(stdout, "╔══════════════════════════════════════╗")
+	fmt.Fprintln(stdout, "║           DTSW User Manager          ║")
+	fmt.Fprintln(stdout, "╚══════════════════════════════════════╝")
+	fmt.Fprintln(stdout, "")
+	fmt.Fprintf(stdout, "  Config path:       %s\n", cfg.Paths.DTSWConfigFile)
+	fmt.Fprintf(stdout, "  Total users:       %d\n", len(cfg.Users))
+	fmt.Fprintln(stdout, "")
+	fmt.Fprintln(stdout, "  1) List users")
+	fmt.Fprintln(stdout, "  2) Show a user's client configuration")
+	fmt.Fprintln(stdout, "  3) Add user")
+	fmt.Fprintln(stdout, "  4) Delete user")
+	fmt.Fprintln(stdout, "  0) Back")
+	fmt.Fprintln(stdout, "")
+}
+
+func addUserFromPanel(configPath string, cfg config.Config, reader *bufio.Reader, stdout, stderr io.Writer) (config.Config, bool, error) {
+	defaultName := fmt.Sprintf("user%d", len(cfg.Users)+1)
+	name, err := promptRequiredText(reader, stdout, "User name", defaultName)
+	if err != nil {
+		return cfg, false, err
+	}
+	password, err := panelPromptDefault(reader, stdout, "Trojan password", generatePanelPassword())
+	if err != nil {
+		return cfg, false, err
+	}
+	if err := cfg.AddUser(name, password); err != nil {
+		return cfg, false, err
+	}
+	if err := savePanelUserChanges(configPath, cfg, stdout, stderr); err != nil {
+		return cfg, false, err
+	}
+	user, _ := cfg.User(name)
+	fmt.Fprintf(stdout, "Added user %s and reloaded Xray.\n\n", name)
+	printClientConfigurationForUser(stdout, cfg, user)
+	return cfg, true, nil
+}
+
+func deleteUserFromPanel(configPath string, cfg config.Config, reader *bufio.Reader, stdout, stderr io.Writer) (config.Config, bool, error) {
+	user, ok, err := selectUserFromConfig(reader, stdout, cfg, "Delete which user")
+	if err != nil || !ok {
+		return cfg, false, err
+	}
+	confirm, err := panelPromptDefault(reader, stdout, fmt.Sprintf("Delete user %s? (y/n)", user.Name), "n")
+	if err != nil {
+		return cfg, false, err
+	}
+	if !isAffirmative(confirm) {
+		fmt.Fprintln(stdout, "User deletion cancelled.")
+		return cfg, false, nil
+	}
+	if err := cfg.DeleteUser(user.Name); err != nil {
+		return cfg, false, err
+	}
+	if err := savePanelUserChanges(configPath, cfg, stdout, stderr); err != nil {
+		return cfg, false, err
+	}
+	fmt.Fprintf(stdout, "Deleted user %s and reloaded Xray.\n", user.Name)
+	return cfg, true, nil
+}
+
+func savePanelUserChanges(configPath string, cfg config.Config, stdout, stderr io.Writer) error {
+	if configPath != "" {
+		cfg.Paths.DTSWConfigFile = configPath
+	}
+	if err := os.MkdirAll(filepath.Dir(cfg.Paths.DTSWConfigFile), 0o755); err != nil {
+		return err
+	}
+	if err := writeSourceAndRuntimeConfig(cfg.Paths.DTSWConfigFile, cfg, false, stdout, stderr); err != nil {
+		return err
+	}
+	return systemd.Reload(context.Background(), systemd.CommandOptions{Stdout: stdout, Stderr: stderr}, cfg.Paths.RuntimeService)
+}
+
+func selectUserFromConfig(reader *bufio.Reader, stdout io.Writer, cfg config.Config, prompt string) (config.User, bool, error) {
+	if len(cfg.Users) == 0 {
+		fmt.Fprintln(stdout, "No users are configured yet.")
+		return config.User{}, false, nil
+	}
+	fmt.Fprintln(stdout, "Users:")
+	for i, user := range cfg.Users {
+		fmt.Fprintf(stdout, "  %d) %s\n", i+1, user.Name)
+	}
+	selection, err := panelPromptDefault(reader, stdout, prompt, "1")
+	if err != nil {
+		return config.User{}, false, err
+	}
+	idx, err := strconv.Atoi(strings.TrimSpace(selection))
+	if err != nil || idx < 1 || idx > len(cfg.Users) {
+		return config.User{}, false, fmt.Errorf("invalid user selection %q", selection)
+	}
+	return cfg.Users[idx-1], true, nil
+}
+
+func promptRequiredText(reader *bufio.Reader, stdout io.Writer, label, defaultValue string) (string, error) {
+	for {
+		value, err := panelPromptDefault(reader, stdout, label, defaultValue)
+		if err != nil {
+			return "", err
+		}
+		value = strings.TrimSpace(value)
+		if value != "" {
+			return value, nil
+		}
+		fmt.Fprintln(stdout, "    ↳ This field is required.")
+	}
+}
+
+func generatePanelPassword() string {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "change-me"
+	}
+	return hex.EncodeToString(b)
+}
+
+func isAffirmative(value string) bool {
+	value = strings.TrimSpace(strings.ToLower(value))
+	return value == "y" || value == "yes"
 }
 
 func preferredPanelUser(cfg config.Config) (config.User, bool) {

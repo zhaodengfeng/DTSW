@@ -33,7 +33,7 @@ The normal user flow is menu-driven:
 1. Run the release installer.
 2. Answer the guided setup questions.
 3. Let DTSW install the server.
-4. Use the management panel to view client information, inspect status, repair the installation, upgrade Xray, renew certificates, or list users.
+4. Use the management panel to view client information, inspect status, repair the installation, upgrade Xray, renew certificates, or manage multiple users.
 
 Running `dtsw` without arguments now opens the interactive launcher. If DTSW finds a saved configuration, the launcher lets you:
 
@@ -48,7 +48,7 @@ Implemented now:
 
 - interactive setup wizard with automatic installation when run as root
 - interactive launcher for zero-argument startup
-- interactive management panel with one-click Xray upgrades and repair actions
+- interactive management panel with one-click Xray upgrades, repair actions, and menu-driven user management
 - initialize, validate, and render DTSW/Xray config
 - generate runtime, fallback, and renewal `systemd` units
 - install DTSW, pinned `acme.sh`, pinned Xray, config files, and services on Linux

@@ -19,7 +19,10 @@ func printClientConfiguration(stdout io.Writer, cfg config.Config) bool {
 		fmt.Fprintln(stdout, "No Trojan users are configured yet.")
 		return false
 	}
+	return printClientConfigurationForUser(stdout, cfg, user)
+}
 
+func printClientConfigurationForUser(stdout io.Writer, cfg config.Config, user config.User) bool {
 	fmt.Fprintln(stdout, "Client configuration:")
 	fmt.Fprintln(stdout, "  Protocol:  trojan")
 	fmt.Fprintf(stdout, "  Address:   %s\n", cfg.Server.Domain)
