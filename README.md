@@ -70,7 +70,7 @@ Not implemented yet:
 - certificate automation uses a pinned `acme.sh` script plus DTSW-managed renewal timers
 - HTTP-01 requires TCP `80` to be reachable
 - DNS-01 requires provider credentials in `/etc/dtsw/acme.env`
-- the default runtime version is pinned in code and currently set to `v26.1.13`
+- first-time setup resolves the latest stable Xray release and writes it into the config; if lookup fails, DTSW falls back to the bundled version `v26.1.13`
 - the default `acme.sh` version is pinned in code and currently set to `3.1.2`
 
 ## Advanced commands

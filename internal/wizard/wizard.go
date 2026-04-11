@@ -2,6 +2,7 @@ package wizard
 
 import (
 	"bufio"
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -10,10 +11,14 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/zhaodengfeng/dtsw/internal/config"
+	"github.com/zhaodengfeng/dtsw/internal/runtime/xray"
 	"github.com/zhaodengfeng/dtsw/internal/tlscfg"
 )
+
+var latestVersionLookup = xray.LatestVersion
 
 // Result holds the wizard output.
 type Result struct {
@@ -119,6 +124,7 @@ func run(stdin io.Reader, stdout, stderr io.Writer, isRoot bool) (Result, error)
 	if err != nil {
 		return result, err
 	}
+	runtimeVersion, runtimeNote := resolveInitialRuntimeVersion()
 
 	paths := config.DefaultPaths()
 	paths.DTSWConfigFile = configPath
@@ -126,7 +132,7 @@ func run(stdin io.Reader, stdout, stderr io.Writer, isRoot bool) (Result, error)
 		Name: "dtsw",
 		Runtime: config.RuntimeConfig{
 			Type:    config.RuntimeXray,
-			Version: config.DefaultXrayVersion,
+			Version: runtimeVersion,
 		},
 		Server: config.ServerConfig{
 			Domain:     domain,
@@ -176,7 +182,10 @@ func run(stdin io.Reader, stdout, stderr io.Writer, isRoot bool) (Result, error)
 		fmt.Fprintf(stdout, "  DNS Provider: %s\n", dnsProvider)
 	}
 	fmt.Fprintf(stdout, "  Config Path:  %s\n", configPath)
-	fmt.Fprintf(stdout, "  Runtime:      Xray %s\n", config.DefaultXrayVersion)
+	fmt.Fprintf(stdout, "  Runtime:      Xray %s\n", runtimeVersion)
+	if runtimeNote != "" {
+		fmt.Fprintf(stdout, "  Runtime Note: %s\n", runtimeNote)
+	}
 	fmt.Fprintln(stdout, "")
 
 	if !isRoot {
@@ -261,4 +270,15 @@ func generatePassword() string {
 		return "change-me-please"
 	}
 	return hex.EncodeToString(b)
+}
+
+func resolveInitialRuntimeVersion() (string, string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	version, err := latestVersionLookup(ctx)
+	if err != nil {
+		return config.DefaultXrayVersion, fmt.Sprintf("Latest lookup failed, using bundled fallback %s (%v)", config.DefaultXrayVersion, err)
+	}
+	return version, "Latest stable release resolved during setup and written into the config."
 }

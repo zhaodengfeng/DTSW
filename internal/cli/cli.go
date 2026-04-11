@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/zhaodengfeng/dtsw/internal/config"
 	"github.com/zhaodengfeng/dtsw/internal/doctor"
@@ -90,7 +91,8 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 			return 1
 		}
 	}
-	cfg := config.Example(*domain, *email, *password)
+	runtimeVersion, runtimeNote := resolveInitialRuntimeVersion()
+	cfg := config.ExampleWithVersion(*domain, *email, *password, runtimeVersion)
 	if err := cfg.Validate(); err != nil {
 		fmt.Fprintf(stderr, "generated config is invalid: %v\n", err)
 		return 1
@@ -102,6 +104,9 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 	if err := config.Write(*out, cfg); err != nil {
 		fmt.Fprintf(stderr, "write config: %v\n", err)
 		return 1
+	}
+	if runtimeNote != "" {
+		fmt.Fprintln(stdout, runtimeNote)
 	}
 	fmt.Fprintf(stdout, "wrote %s\n", *out)
 	return 0
@@ -576,6 +581,17 @@ func openSetupInput() (io.Reader, func(), error) {
 		return nil, nil, err
 	}
 	return tty, func() { _ = tty.Close() }, nil
+}
+
+func resolveInitialRuntimeVersion() (string, string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	version, err := xray.LatestVersion(ctx)
+	if err != nil {
+		return config.DefaultXrayVersion, fmt.Sprintf("Latest Xray lookup failed, using bundled fallback %s.", config.DefaultXrayVersion)
+	}
+	return version, fmt.Sprintf("Latest stable Xray %s selected and written into the config.", version)
 }
 
 func printUsage(out io.Writer) {

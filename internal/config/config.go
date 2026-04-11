@@ -104,12 +104,16 @@ func DefaultPaths() PathsConfig {
 }
 
 func Example(domain, email, password string) Config {
+	return ExampleWithVersion(domain, email, password, DefaultXrayVersion)
+}
+
+func ExampleWithVersion(domain, email, password, runtimeVersion string) Config {
 	paths := DefaultPaths()
 	return Config{
 		Name: "dtsw",
 		Runtime: RuntimeConfig{
 			Type:    RuntimeXray,
-			Version: DefaultXrayVersion,
+			Version: runtimeVersion,
 		},
 		Server: ServerConfig{
 			Domain:     domain,
