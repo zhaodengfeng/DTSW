@@ -27,10 +27,10 @@ func TestExistingCertificateValid(t *testing.T) {
 	notAfter := time.Now().Add(24 * time.Hour)
 	tpl := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
-		Subject: pkix.Name{CommonName: "trojan.example.com"},
-		NotBefore: time.Now().Add(-1 * time.Hour),
-		NotAfter:  notAfter,
-		KeyUsage:  x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		Subject:      pkix.Name{CommonName: "trojan.example.com"},
+		NotBefore:    time.Now().Add(-1 * time.Hour),
+		NotAfter:     notAfter,
+		KeyUsage:     x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 	}
 	der, err := x509.CreateCertificate(rand.Reader, tpl, tpl, &privateKey.PublicKey, privateKey)
 	if err != nil {
