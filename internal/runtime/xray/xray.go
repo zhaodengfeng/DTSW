@@ -26,8 +26,9 @@ func (Renderer) Render(cfg config.Config) ([]byte, error) {
 		Dest int `json:"dest"`
 	}
 	type inboundSettings struct {
-		Clients   []user     `json:"clients"`
-		Fallbacks []fallback `json:"fallbacks"`
+		Clients   []user     `json:"clients,omitempty"`
+		Fallbacks []fallback `json:"fallbacks,omitempty"`
+		Address   string     `json:"address,omitempty"`
 	}
 	type certificate struct {
 		CertificateFile string `json:"certificateFile"`
@@ -51,18 +52,42 @@ func (Renderer) Render(cfg config.Config) ([]byte, error) {
 		Listen         string          `json:"listen"`
 		Port           int             `json:"port"`
 		Protocol       string          `json:"protocol"`
+		Tag            string          `json:"tag,omitempty"`
 		Settings       inboundSettings `json:"settings"`
-		StreamSettings streamSettings  `json:"streamSettings"`
-		Sniffing       sniffing        `json:"sniffing"`
+		StreamSettings *streamSettings `json:"streamSettings,omitempty"`
+		Sniffing       *sniffing       `json:"sniffing,omitempty"`
 	}
 	type outbound struct {
 		Protocol string `json:"protocol"`
 		Tag      string `json:"tag,omitempty"`
 	}
+	type apiConfig struct {
+		Tag      string   `json:"tag"`
+		Services []string `json:"services"`
+	}
+	type systemPolicy struct {
+		StatsInboundUplink   bool `json:"statsInboundUplink"`
+		StatsInboundDownlink bool `json:"statsInboundDownlink"`
+	}
+	type policyConfig struct {
+		System systemPolicy `json:"system"`
+	}
+	type routingRule struct {
+		Type        string   `json:"type"`
+		InboundTag  []string `json:"inboundTag"`
+		OutboundTag string   `json:"outboundTag"`
+	}
+	type routingConfig struct {
+		Rules []routingRule `json:"rules"`
+	}
 	type root struct {
-		Log       logConfig  `json:"log"`
-		Inbounds  []inbound  `json:"inbounds"`
-		Outbounds []outbound `json:"outbounds"`
+		Log       logConfig     `json:"log"`
+		Stats     struct{}      `json:"stats"`
+		API       apiConfig     `json:"api"`
+		Policy    policyConfig  `json:"policy"`
+		Routing   routingConfig `json:"routing"`
+		Inbounds  []inbound     `json:"inbounds"`
+		Outbounds []outbound    `json:"outbounds"`
 	}
 
 	_, portText, err := net.SplitHostPort(cfg.Fallback.ListenAddress)
@@ -70,6 +95,15 @@ func (Renderer) Render(cfg config.Config) ([]byte, error) {
 		return nil, err
 	}
 	port, err := strconv.Atoi(portText)
+	if err != nil {
+		return nil, err
+	}
+
+	apiHost, apiPortText, err := net.SplitHostPort(cfg.Stats.APIListen)
+	if err != nil {
+		return nil, err
+	}
+	apiPort, err := strconv.Atoi(apiPortText)
 	if err != nil {
 		return nil, err
 	}
@@ -86,18 +120,39 @@ func (Renderer) Render(cfg config.Config) ([]byte, error) {
 		Log: logConfig{
 			LogLevel: "warning",
 		},
+		Stats: struct{}{},
+		API: apiConfig{
+			Tag:      "api",
+			Services: []string{"StatsService"},
+		},
+		Policy: policyConfig{
+			System: systemPolicy{
+				StatsInboundUplink:   true,
+				StatsInboundDownlink: true,
+			},
+		},
+		Routing: routingConfig{
+			Rules: []routingRule{
+				{
+					Type:        "field",
+					InboundTag:  []string{"api"},
+					OutboundTag: "api",
+				},
+			},
+		},
 		Inbounds: []inbound{
 			{
 				Listen:   cfg.Server.ListenHost,
 				Port:     cfg.Server.Port,
 				Protocol: "trojan",
+				Tag:      "trojan-in",
 				Settings: inboundSettings{
 					Clients: clients,
 					Fallbacks: []fallback{
 						{Dest: port},
 					},
 				},
-				StreamSettings: streamSettings{
+				StreamSettings: &streamSettings{
 					Network:  "tcp",
 					Security: "tls",
 					TLSSettings: tlsSettings{
@@ -111,9 +166,18 @@ func (Renderer) Render(cfg config.Config) ([]byte, error) {
 						},
 					},
 				},
-				Sniffing: sniffing{
+				Sniffing: &sniffing{
 					Enabled:      true,
 					DestOverride: []string{"http", "tls"},
+				},
+			},
+			{
+				Listen:   apiHost,
+				Port:     apiPort,
+				Protocol: "dokodemo-door",
+				Tag:      "api",
+				Settings: inboundSettings{
+					Address: apiHost,
 				},
 			},
 		},

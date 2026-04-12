@@ -38,28 +38,28 @@ func run(stdin io.Reader, stdout, stderr io.Writer, isRoot bool) (Result, error)
 
 	fmt.Fprintln(stdout, "")
 	fmt.Fprintln(stdout, "╔══════════════════════════════════════╗")
-	fmt.Fprintln(stdout, "║       DTSW Interactive Setup         ║")
+	fmt.Fprintln(stdout, "║         DTSW 引导安装向导             ║")
 	fmt.Fprintln(stdout, "╚══════════════════════════════════════╝")
 	fmt.Fprintln(stdout, "")
-	fmt.Fprintln(stdout, "This wizard will guide you through configuring DTSW.")
-	fmt.Fprintln(stdout, "Press Enter to accept the default value shown in [brackets].")
+	fmt.Fprintln(stdout, "本向导将引导您完成 DTSW 的配置。")
+	fmt.Fprintln(stdout, "按回车键接受 [方括号] 中的默认值。")
 	if !isRoot {
-		fmt.Fprintln(stdout, "Running without root will save a config in the current directory by default.")
-		fmt.Fprintln(stdout, "Installing services still requires running DTSW as root later.")
+		fmt.Fprintln(stdout, "当前非 root 运行，配置将默认保存在当前目录。")
+		fmt.Fprintln(stdout, "安装服务仍需以 root 身份运行 DTSW。")
 	}
 	fmt.Fprintln(stdout, "")
 
-	domain, err := promptRequired(r, stdout, "Domain name (e.g. trojan.example.com)", "")
+	domain, err := promptRequired(r, stdout, "域名 (例如 trojan.example.com)", "")
 	if err != nil {
 		return result, err
 	}
 
-	email, err := promptValidated(r, stdout, "ACME email address", "", func(v string) error {
+	email, err := promptValidated(r, stdout, "ACME 邮箱地址", "", func(v string) error {
 		if v == "" {
-			return fmt.Errorf("email is required")
+			return fmt.Errorf("邮箱为必填项")
 		}
 		if _, err := mail.ParseAddress(v); err != nil {
-			return fmt.Errorf("invalid email: %v", err)
+			return fmt.Errorf("邮箱格式无效: %v", err)
 		}
 		return nil
 	})
@@ -68,41 +68,41 @@ func run(stdin io.Reader, stdout, stderr io.Writer, isRoot bool) (Result, error)
 	}
 
 	defaultPass := generatePassword()
-	password, err := promptDefault(r, stdout, "Trojan password", defaultPass)
+	password, err := promptDefault(r, stdout, "Trojan 密码", defaultPass)
 	if err != nil {
 		return result, err
 	}
 
-	portStr, err := promptDefault(r, stdout, "Listen port", "443")
+	portStr, err := promptDefault(r, stdout, "监听端口", "443")
 	if err != nil {
 		return result, err
 	}
 	port, err := strconv.Atoi(portStr)
 	if err != nil || port < 1 || port > 65535 {
-		return result, fmt.Errorf("invalid port: %s", portStr)
+		return result, fmt.Errorf("无效的端口: %s", portStr)
 	}
 
 	issuers := tlscfg.SupportedIssuers()
 	fmt.Fprintln(stdout, "")
-	fmt.Fprintln(stdout, "Available certificate issuers:")
+	fmt.Fprintln(stdout, "可用的证书颁发者:")
 	for i, iss := range issuers {
 		fmt.Fprintf(stdout, "  %d) %s - %s\n", i+1, iss.DisplayName, iss.Notes)
 	}
-	issuerStr, err := promptDefault(r, stdout, "Select issuer", "1")
+	issuerStr, err := promptDefault(r, stdout, "选择颁发者", "1")
 	if err != nil {
 		return result, err
 	}
 	issuerIdx, err := strconv.Atoi(issuerStr)
 	if err != nil || issuerIdx < 1 || issuerIdx > len(issuers) {
-		return result, fmt.Errorf("invalid issuer selection: %s", issuerStr)
+		return result, fmt.Errorf("无效的颁发者选择: %s", issuerStr)
 	}
 	selectedIssuer := issuers[issuerIdx-1].ID
 
 	fmt.Fprintln(stdout, "")
-	fmt.Fprintln(stdout, "ACME challenge types:")
-	fmt.Fprintln(stdout, "  1) HTTP-01 - Requires TCP port 80 to be reachable (recommended)")
-	fmt.Fprintln(stdout, "  2) DNS-01  - Requires DNS provider API credentials")
-	challengeStr, err := promptDefault(r, stdout, "Select challenge type", "1")
+	fmt.Fprintln(stdout, "ACME 验证方式:")
+	fmt.Fprintln(stdout, "  1) HTTP-01 - 需要 TCP 80 端口可访问 (推荐)")
+	fmt.Fprintln(stdout, "  2) DNS-01  - 需要 DNS 服务商 API 凭证")
+	challengeStr, err := promptDefault(r, stdout, "选择验证方式", "1")
 	if err != nil {
 		return result, err
 	}
@@ -112,15 +112,15 @@ func run(stdin io.Reader, stdout, stderr io.Writer, isRoot bool) (Result, error)
 		challenge = config.ChallengeHTTP01
 	case "2":
 		challenge = config.ChallengeDNS01
-		dnsProvider, err = promptRequired(r, stdout, "DNS provider (e.g. dns_cf, dns_ali)", "")
+		dnsProvider, err = promptRequired(r, stdout, "DNS 服务商 (例如 dns_cf, dns_ali)", "")
 		if err != nil {
 			return result, err
 		}
 	default:
-		return result, fmt.Errorf("invalid challenge selection: %s", challengeStr)
+		return result, fmt.Errorf("无效的验证方式选择: %s", challengeStr)
 	}
 
-	configPath, err := promptDefault(r, stdout, "Config file path", defaultConfigPath(isRoot))
+	configPath, err := promptDefault(r, stdout, "配置文件路径", defaultConfigPath(isRoot))
 	if err != nil {
 		return result, err
 	}
@@ -166,39 +166,39 @@ func run(stdin io.Reader, stdout, stderr io.Writer, isRoot bool) (Result, error)
 	}
 
 	if err := cfg.Validate(); err != nil {
-		return result, fmt.Errorf("configuration is invalid: %v", err)
+		return result, fmt.Errorf("配置校验失败: %v", err)
 	}
 
 	fmt.Fprintln(stdout, "")
 	fmt.Fprintln(stdout, "╔══════════════════════════════════════╗")
-	fmt.Fprintln(stdout, "║         Configuration Summary        ║")
+	fmt.Fprintln(stdout, "║           配置摘要                   ║")
 	fmt.Fprintln(stdout, "╚══════════════════════════════════════╝")
 	fmt.Fprintln(stdout, "")
-	fmt.Fprintf(stdout, "  Domain:       %s\n", domain)
-	fmt.Fprintf(stdout, "  Email:        %s\n", email)
-	fmt.Fprintf(stdout, "  Password:     %s\n", password)
-	fmt.Fprintf(stdout, "  Port:         %d\n", port)
-	fmt.Fprintf(stdout, "  Issuer:       %s\n", selectedIssuer)
-	fmt.Fprintf(stdout, "  Challenge:    %s\n", challenge)
+	fmt.Fprintf(stdout, "  域名:          %s\n", domain)
+	fmt.Fprintf(stdout, "  邮箱:          %s\n", email)
+	fmt.Fprintf(stdout, "  密码:          %s\n", password)
+	fmt.Fprintf(stdout, "  端口:          %d\n", port)
+	fmt.Fprintf(stdout, "  颁发者:        %s\n", selectedIssuer)
+	fmt.Fprintf(stdout, "  验证方式:      %s\n", challenge)
 	if dnsProvider != "" {
-		fmt.Fprintf(stdout, "  DNS Provider: %s\n", dnsProvider)
+		fmt.Fprintf(stdout, "  DNS 服务商:    %s\n", dnsProvider)
 	}
-	fmt.Fprintf(stdout, "  Config Path:  %s\n", configPath)
-	fmt.Fprintf(stdout, "  Runtime:      Xray %s\n", runtimeVersion)
-	fmt.Fprintln(stdout, "  Fallback:     Real website (Caddy static site)")
-	fmt.Fprintf(stdout, "  Site Root:    %s\n", cfg.Fallback.SiteRoot)
+	fmt.Fprintf(stdout, "  配置文件:      %s\n", configPath)
+	fmt.Fprintf(stdout, "  运行时:        Xray %s\n", runtimeVersion)
+	fmt.Fprintln(stdout, "  回落:          真实网站 (Caddy 静态站点)")
+	fmt.Fprintf(stdout, "  站点根目录:    %s\n", cfg.Fallback.SiteRoot)
 	if runtimeNote != "" {
-		fmt.Fprintf(stdout, "  Runtime Note: %s\n", runtimeNote)
+		fmt.Fprintf(stdout, "  运行时备注:    %s\n", runtimeNote)
 	}
 	fmt.Fprintln(stdout, "")
 
 	if !isRoot {
-		fmt.Fprintln(stdout, "Installing services automatically requires root.")
-		fmt.Fprintln(stdout, "You can still save the config now and run the install command with sudo afterwards.")
+		fmt.Fprintln(stdout, "自动安装服务需要 root 权限。")
+		fmt.Fprintln(stdout, "您可以先保存配置，之后使用 sudo 运行安装命令。")
 		fmt.Fprintln(stdout, "")
 	}
 
-	confirm, err := promptDefault(r, stdout, "Proceed with installation? (y/n)", defaultInstallAnswer(isRoot))
+	confirm, err := promptDefault(r, stdout, "是否立即开始安装？(y/n)", defaultInstallAnswer(isRoot))
 	if err != nil {
 		return result, err
 	}
@@ -250,7 +250,7 @@ func promptRequired(r *bufio.Reader, w io.Writer, label, defaultVal string) (str
 		if val != "" {
 			return val, nil
 		}
-		fmt.Fprintln(w, "    ↳ This field is required.")
+		fmt.Fprintln(w, "    ↳ 此项为必填。")
 	}
 }
 
@@ -282,7 +282,7 @@ func resolveInitialRuntimeVersion() (string, string) {
 
 	version, err := latestVersionLookup(ctx)
 	if err != nil {
-		return config.DefaultXrayVersion, fmt.Sprintf("Latest lookup failed, using bundled fallback %s (%v)", config.DefaultXrayVersion, err)
+		return config.DefaultXrayVersion, fmt.Sprintf("获取最新版本失败，使用内置版本 %s (%v)", config.DefaultXrayVersion, err)
 	}
-	return version, "Latest stable release resolved during setup and written into the config."
+	return version, "已获取最新稳定版本并写入配置。"
 }

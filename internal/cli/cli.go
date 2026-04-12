@@ -573,6 +573,8 @@ func trojanURL(cfg config.Config, user config.User) string {
 	return u.String()
 }
 
+
+
 func openSetupInput() (io.Reader, func(), error) {
 	if info, err := os.Stdin.Stat(); err == nil && info.Mode()&os.ModeCharDevice != 0 {
 		return os.Stdin, func() {}, nil

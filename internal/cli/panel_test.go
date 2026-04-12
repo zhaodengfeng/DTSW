@@ -19,14 +19,27 @@ func TestRenderPanelUsesRestoreLabel(t *testing.T) {
 	var out bytes.Buffer
 	renderPanel(&out, cfg, state)
 
-	if !strings.Contains(out.String(), "Restore Xray to configured state") {
-		t.Fatalf("panel output did not contain updated restore label: %q", out.String())
+	if !strings.Contains(out.String(), "恢复 Xray 到配置版本") {
+		t.Fatalf("panel output did not contain restore label: %q", out.String())
 	}
-	if strings.Contains(out.String(), "Sync installed Xray to configured version") {
-		t.Fatalf("panel output still contains old sync label: %q", out.String())
-	}
-	if !strings.Contains(out.String(), "Uninstall DTSW") {
+	if !strings.Contains(out.String(), "卸载 DTSW") {
 		t.Fatalf("panel output did not contain uninstall entry: %q", out.String())
+	}
+	if !strings.Contains(out.String(), "用户与流量管理") {
+		t.Fatalf("panel output did not contain user/traffic entry: %q", out.String())
+	}
+}
+
+func TestRenderUserPanelContainsStats(t *testing.T) {
+	cfg := config.Example("trojan.example.com", "admin@example.com", "secret")
+	var out bytes.Buffer
+	renderUserPanel(&out, cfg)
+
+	if !strings.Contains(out.String(), "查看全部用户流量统计") {
+		t.Fatalf("user panel did not contain all-stats entry: %q", out.String())
+	}
+	if !strings.Contains(out.String(), "查看单个用户流量统计") {
+		t.Fatalf("user panel did not contain single-stats entry: %q", out.String())
 	}
 }
 
@@ -71,10 +84,10 @@ func TestPrintClientConfigurationForUserUsesSelectedUser(t *testing.T) {
 		t.Fatal("printClientConfigurationForUser returned false")
 	}
 	text := out.String()
-	if !strings.Contains(text, "Username:  secondary") {
+	if !strings.Contains(text, "用户名:    secondary") {
 		t.Fatalf("expected selected username in output, got %q", text)
 	}
-	if !strings.Contains(text, "Password:  secret-2") {
+	if !strings.Contains(text, "密码:      secret-2") {
 		t.Fatalf("expected selected password in output, got %q", text)
 	}
 }
@@ -90,7 +103,7 @@ func TestUninstallFromPanelCancel(t *testing.T) {
 	if removed {
 		t.Fatal("expected uninstall to be cancelled")
 	}
-	if !strings.Contains(out.String(), "Uninstall cancelled.") {
+	if !strings.Contains(out.String(), "已取消卸载。") {
 		t.Fatalf("expected cancel message, got %q", out.String())
 	}
 }

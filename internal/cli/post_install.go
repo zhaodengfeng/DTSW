@@ -14,12 +14,12 @@ func completeInstallFlow(configPath string, cfg config.Config, stdout, stderr io
 	input, cleanup, err := openSetupInput()
 	if err != nil {
 		fmt.Fprintln(stdout, "")
-		fmt.Fprintln(stdout, "Installation finished. The interactive menu will open the next time DTSW starts in a terminal.")
+		fmt.Fprintln(stdout, "安装已完成。下次在终端启动 DTSW 时将自动打开交互菜单。")
 		return 0
 	}
 	defer cleanup()
 
 	fmt.Fprintln(stdout, "")
-	fmt.Fprintln(stdout, "Opening the DTSW management panel...")
+	fmt.Fprintln(stdout, "正在打开 DTSW 管理面板...")
 	return runPanelWithInput(configPath, input, stdout, stderr)
 }

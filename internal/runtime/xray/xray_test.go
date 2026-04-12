@@ -20,7 +20,20 @@ func TestRenderIncludesUsersAndTLSPaths(t *testing.T) {
 	}
 
 	inbounds, ok := decoded["inbounds"].([]any)
-	if !ok || len(inbounds) != 1 {
-		t.Fatalf("expected one inbound, got %#v", decoded["inbounds"])
+	if !ok || len(inbounds) != 2 {
+		t.Fatalf("expected two inbounds (trojan + api), got %d", len(inbounds))
+	}
+
+	if _, ok := decoded["stats"]; !ok {
+		t.Fatal("rendered config missing stats section")
+	}
+	if _, ok := decoded["api"]; !ok {
+		t.Fatal("rendered config missing api section")
+	}
+	if _, ok := decoded["policy"]; !ok {
+		t.Fatal("rendered config missing policy section")
+	}
+	if _, ok := decoded["routing"]; !ok {
+		t.Fatal("rendered config missing routing section")
 	}
 }

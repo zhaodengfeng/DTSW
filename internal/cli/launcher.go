@@ -33,9 +33,9 @@ func runLauncher(stdout, stderr io.Writer) int {
 		state := findLauncherState(defaultLauncherConfigPaths())
 		renderLauncher(stdout, state)
 
-		choice, err := panelPromptDefault(reader, stdout, "Select an action", launcherDefaultChoice(state))
+		choice, err := panelPromptDefault(reader, stdout, "请选择操作", launcherDefaultChoice(state))
 		if err != nil {
-			fmt.Fprintf(stderr, "read selection: %v\n", err)
+			fmt.Fprintf(stderr, "读取输入失败: %v\n", err)
 			return 1
 		}
 		fmt.Fprintln(stdout, "")
@@ -44,26 +44,26 @@ func runLauncher(stdout, stderr io.Writer) int {
 		case state.Ready:
 			switch strings.TrimSpace(choice) {
 			case "0", "q", "quit", "exit":
-				fmt.Fprintln(stdout, "Leaving DTSW.")
+				fmt.Fprintln(stdout, "已退出 DTSW。")
 				return 0
 			case "1":
 				return runPanelWithInput(state.ConfigPath, reader, stdout, stderr)
 			case "2":
 				if os.Geteuid() != 0 {
-					fmt.Fprintln(stdout, "This action needs root. Restart DTSW with root privileges and choose this option again.")
+					fmt.Fprintln(stdout, "此操作需要 root 权限，请以 root 身份重启 DTSW 后重试。")
 					waitForEnter(reader, stdout)
 					continue
 				}
 				if err := install.Execute(context.Background(), state.Config, install.Options{Stdout: stdout, Stderr: stderr}); err != nil {
-					fmt.Fprintf(stderr, "install or repair: %v\n", err)
+					fmt.Fprintf(stderr, "安装或修复失败: %v\n", err)
 					waitForEnter(reader, stdout)
 					continue
 				}
-				fmt.Fprintln(stdout, "Server installation or repair completed.")
+				fmt.Fprintln(stdout, "服务器安装或修复已完成。")
 				fmt.Fprintln(stdout, "")
 				printClientConfiguration(stdout, state.Config)
 				fmt.Fprintln(stdout, "")
-				fmt.Fprintln(stdout, "Opening the DTSW management panel...")
+				fmt.Fprintln(stdout, "正在打开 DTSW 管理面板...")
 				return runPanelWithInput(state.ConfigPath, reader, stdout, stderr)
 			case "3":
 				printClientConfiguration(stdout, state.Config)
@@ -71,18 +71,18 @@ func runLauncher(stdout, stderr io.Writer) int {
 			case "4":
 				return runSetup(stdout, stderr)
 			default:
-				fmt.Fprintf(stderr, "unknown selection %q\n", choice)
+				fmt.Fprintf(stderr, "无效的选项 %q\n", choice)
 				waitForEnter(reader, stdout)
 			}
 		default:
 			switch strings.TrimSpace(choice) {
 			case "0", "q", "quit", "exit":
-				fmt.Fprintln(stdout, "Leaving DTSW.")
+				fmt.Fprintln(stdout, "已退出 DTSW。")
 				return 0
 			case "1":
 				return runSetup(stdout, stderr)
 			default:
-				fmt.Fprintf(stderr, "unknown selection %q\n", choice)
+				fmt.Fprintf(stderr, "无效的选项 %q\n", choice)
 				waitForEnter(reader, stdout)
 			}
 		}
@@ -92,33 +92,33 @@ func runLauncher(stdout, stderr io.Writer) int {
 func renderLauncher(stdout io.Writer, state launcherState) {
 	fmt.Fprintln(stdout, "")
 	fmt.Fprintln(stdout, "╔══════════════════════════════════════╗")
-	fmt.Fprintln(stdout, "║         DTSW Interactive Menu        ║")
+	fmt.Fprintln(stdout, "║           DTSW 交互菜单              ║")
 	fmt.Fprintln(stdout, "╚══════════════════════════════════════╝")
 	fmt.Fprintln(stdout, "")
 
 	if state.Ready {
-		fmt.Fprintf(stdout, "  Saved configuration: %s\n", state.ConfigPath)
-		fmt.Fprintf(stdout, "  Domain:              %s\n", state.Config.Server.Domain)
-		fmt.Fprintf(stdout, "  Users:               %d\n", len(state.Config.Users))
+		fmt.Fprintf(stdout, "  配置文件:           %s\n", state.ConfigPath)
+		fmt.Fprintf(stdout, "  域名:              %s\n", state.Config.Server.Domain)
+		fmt.Fprintf(stdout, "  用户数:            %d\n", len(state.Config.Users))
 		fmt.Fprintln(stdout, "")
-		fmt.Fprintln(stdout, "  1) Open management panel")
-		fmt.Fprintln(stdout, "  2) Install or repair with the saved configuration")
-		fmt.Fprintln(stdout, "  3) Show client configuration")
-		fmt.Fprintln(stdout, "  4) Run guided setup again")
-		fmt.Fprintln(stdout, "  0) Exit")
+		fmt.Fprintln(stdout, "  1) 打开管理面板")
+		fmt.Fprintln(stdout, "  2) 使用已保存配置安装或修复")
+		fmt.Fprintln(stdout, "  3) 查看客户端配置")
+		fmt.Fprintln(stdout, "  4) 重新运行引导安装")
+		fmt.Fprintln(stdout, "  0) 退出")
 		fmt.Fprintln(stdout, "")
 		return
 	}
 
 	if state.Problem != nil {
-		fmt.Fprintf(stdout, "  Saved configuration found at %s, but it needs attention:\n", state.ConfigPath)
+		fmt.Fprintf(stdout, "  发现配置文件 %s，但存在问题:\n", state.ConfigPath)
 		fmt.Fprintf(stdout, "  %v\n", state.Problem)
 	} else {
-		fmt.Fprintln(stdout, "  No saved DTSW configuration was found yet.")
+		fmt.Fprintln(stdout, "  尚未找到 DTSW 配置文件。")
 	}
 	fmt.Fprintln(stdout, "")
-	fmt.Fprintln(stdout, "  1) Start guided setup")
-	fmt.Fprintln(stdout, "  0) Exit")
+	fmt.Fprintln(stdout, "  1) 开始引导安装")
+	fmt.Fprintln(stdout, "  0) 退出")
 	fmt.Fprintln(stdout, "")
 }
 

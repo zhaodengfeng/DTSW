@@ -34,6 +34,7 @@ type Config struct {
 	Server   ServerConfig   `json:"server"`
 	TLS      TLSConfig      `json:"tls"`
 	Fallback FallbackConfig `json:"fallback"`
+	Stats    StatsConfig    `json:"stats"`
 	Users    []User         `json:"users"`
 	Paths    PathsConfig    `json:"paths"`
 }
@@ -70,6 +71,10 @@ type FallbackConfig struct {
 	StatusCode    int    `json:"status_code"`
 }
 
+type StatsConfig struct {
+	APIListen string `json:"api_listen"`
+}
+
 type User struct {
 	Name     string `json:"name"`
 	Password string `json:"password"`
@@ -91,6 +96,7 @@ type PathsConfig struct {
 	FallbackService   string `json:"fallback_service"`
 	RenewService      string `json:"renew_service"`
 	RenewTimer        string `json:"renew_timer"`
+	StatsFile         string `json:"stats_file"`
 }
 
 func DefaultPaths() PathsConfig {
@@ -147,6 +153,9 @@ func ExampleWithVersion(domain, email, password, runtimeVersion string) Config {
 			SiteTitle:     "Service Unavailable",
 			SiteMessage:   "DTSW is online, but this endpoint does not accept direct web traffic.",
 			StatusCode:    404,
+		},
+		Stats: StatsConfig{
+			APIListen: "127.0.0.1:10085",
 		},
 		Users: []User{{
 			Name:     "primary",
@@ -247,6 +256,14 @@ func (c *Config) ApplyDefaults() {
 	}
 	if c.Fallback.StatusCode == 0 {
 		c.Fallback.StatusCode = 404
+	}
+
+	if c.Stats.APIListen == "" {
+		c.Stats.APIListen = "127.0.0.1:10085"
+	}
+
+	if c.Paths.StatsFile == "" {
+		c.Paths.StatsFile = filepath.Join(c.Paths.DataDir, "stats.json")
 	}
 }
 

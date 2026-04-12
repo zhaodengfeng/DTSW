@@ -151,7 +151,7 @@ func TestWizardFallsBackToBundledRuntimeVersion(t *testing.T) {
 	if result.Config.Runtime.Version != "v26.1.13" {
 		t.Fatalf("expected fallback runtime version, got %s", result.Config.Runtime.Version)
 	}
-	if !strings.Contains(stdout.String(), "Runtime Note: Latest lookup failed") {
+	if !strings.Contains(stdout.String(), "运行时备注:    获取最新版本失败") {
 		t.Fatalf("expected fallback note in output, got %q", stdout.String())
 	}
 }
