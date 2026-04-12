@@ -38,7 +38,7 @@ func run(stdin io.Reader, stdout, stderr io.Writer, isRoot bool) (Result, error)
 
 	fmt.Fprintln(stdout, "")
 	fmt.Fprintln(stdout, "╔══════════════════════════════════════╗")
-	fmt.Fprintln(stdout, "║         DTSW 引导安装向导             ║")
+	fmt.Fprintln(stdout, "║         DTSW 引导安装向导            ║")
 	fmt.Fprintln(stdout, "╚══════════════════════════════════════╝")
 	fmt.Fprintln(stdout, "")
 	fmt.Fprintln(stdout, "本向导将引导您完成 DTSW 的配置。")
