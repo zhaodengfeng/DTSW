@@ -24,7 +24,7 @@ curl -fsSL https://github.com/zhaodengfeng/DTSW/releases/latest/download/install
 
 ```
 ╔══════════════════════════════════════╗
-║           DTSW 交互菜单              ║
+║              DTSW 交互菜单               ║
 ╚══════════════════════════════════════╝
 
   配置文件:           /etc/dtsw/config.json
@@ -42,7 +42,7 @@ curl -fsSL https://github.com/zhaodengfeng/DTSW/releases/latest/download/install
 
 ```
 ╔══════════════════════════════════════╗
-║           DTSW 管理面板              ║
+║              DTSW 管理面板               ║
 ╚══════════════════════════════════════╝
 
   域名:              trojan.example.com
@@ -66,7 +66,7 @@ curl -fsSL https://github.com/zhaodengfeng/DTSW/releases/latest/download/install
 
 ```
 ╔══════════════════════════════════════╗
-║         用户与流量管理               ║
+║               用户与流量管理                ║
 ╚══════════════════════════════════════╝
 
   配置文件:           /etc/dtsw/config.json
