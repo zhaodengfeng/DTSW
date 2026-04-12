@@ -1,83 +1,77 @@
 # DTSW
 
-DTSW stands for `Does Trojan still work?`.
+DTSW 全称 `Does Trojan Still Work?`，是一个基于 Xray 的 Trojan 代理服务管理工具，灵感来源于 `easytrojan`，但只支持用户自有域名，不依赖免费共享域名。
 
-DTSW is a ground-up rewrite inspired by `easytrojan`, but it intentionally removes free shared domains and only supports user-owned domains. The current implementation uses:
+当前实现使用：
 
-- a Go control plane (`dtsw`)
-- Xray as the first Trojan runtime adapter
-- `acme.sh` as the ACME client for `Let's Encrypt` and `ZeroSSL`
-- a Caddy-backed static fallback website for fresh installs
-- generated `systemd` units for runtime, fallback, and auto-renewal
+- Go 控制平面（`dtsw`）
+- Xray 作为 Trojan 运行时
+- `acme.sh` 作为 ACME 客户端，支持 `Let's Encrypt` 和 `ZeroSSL`
+- Caddy 静态网站作为回落服务
+- `systemd` 单元管理运行时、回落服务和自动续签
 
-## One-line install
+## 一键安装
 
-Download the installer from the latest published release, verify the binary checksum, install `dtsw`, and immediately start the interactive setup wizard:
+从最新 Release 下载安装脚本，自动校验二进制完整性并启动交互式安装向导：
 
 ```bash
 curl -fsSL https://github.com/zhaodengfeng/DTSW/releases/latest/download/install.sh | bash
 ```
 
-After setup finishes, DTSW now:
+安装完成后，DTSW 会：
 
-- saves the configuration
-- installs or repairs the server automatically when running as root
-- reuses an existing valid certificate if one is already present
-- prints the client-ready connection details
-- opens the management panel automatically so the user can keep choosing actions without typing commands
+- 保存配置文件
+- 以 root 运行时自动安装或修复服务
+- 复用已有的有效证书，不重复申请
+- 打印客户端连接信息
+- 自动打开管理面板，无需手动输入命令
 
-## Interactive flow
+## 交互流程
 
-The normal user flow is menu-driven:
+标准操作全程菜单驱动：
 
-1. Run the release installer.
-2. Answer the guided setup questions.
-3. Let DTSW install the server.
-4. Use the management panel to view client information, inspect status, repair the installation, upgrade Xray, renew certificates, manage multiple users, or uninstall DTSW.
+1. 运行安装脚本
+2. 回答引导安装向导的问题
+3. DTSW 自动完成服务器安装
+4. 使用管理面板查看客户端配置、运行状态、安装修复、升级 Xray、续签证书、管理多用户、查看流量统计或卸载
 
-Running `dtsw` without arguments now opens the interactive launcher. If DTSW finds a saved configuration, the launcher lets you:
+直接运行 `dtsw`（不带参数）会打开交互式启动菜单。若已有保存的配置，菜单提供：
 
-- open the management panel
-- install or repair with the saved configuration
-- show the primary client configuration
-- rerun guided setup
+- 打开管理面板
+- 使用已保存配置安装或修复
+- 查看客户端配置
+- 重新运行引导安装
 
-## Current scope
+## 已实现功能
 
-Implemented now:
+- 交互式安装向导，以 root 运行时自动完成安装
+- 零参数启动的交互式启动菜单
+- 管理面板：一键升级 Xray、修复、菜单化用户管理、菜单化卸载
+- **用户流量统计**：查看每个用户的总流量和当月流量，数据持久化，自动处理重启后计数器归零
+- 初始化、校验和渲染 DTSW/Xray 配置
+- 生成运行时、回落、续签 `systemd` 单元
+- 安装 DTSW、锁定版本的 `acme.sh`、Xray、Caddy，以及配置文件、回落网站内容和服务
+- 重装时复用已有有效证书
+- 安装完成后打印客户端连接信息
+- 通过 `Let's Encrypt` 或 `ZeroSSL` 申请和续签证书
+- 通过 `status` 和 `doctor` 检查运行状态
+- 通过 `list`、`add`、`del`、`url` 管理 Trojan 用户
+- 卸载受管服务和生成的文件
 
-- interactive setup wizard with automatic installation when run as root
-- interactive launcher for zero-argument startup
-- interactive management panel with one-click Xray upgrades, repair actions, menu-driven user management, and menu-driven uninstall
-- initialize, validate, and render DTSW/Xray config
-- generate runtime, fallback, and renewal `systemd` units
-- install DTSW, pinned `acme.sh`, pinned Xray, pinned Caddy, config files, fallback site content, and services on Linux
-- reuse an existing valid certificate on reinstall instead of requesting a new one
-- print client-ready connection details after installation
-- request and renew certificates with `Let's Encrypt` or `ZeroSSL`
-- inspect health with `status` and `doctor`
-- manage Trojan users with `list`, `add`, `del`, and `url`
-- uninstall managed services and generated files
+## 使用前提
 
-Not implemented yet:
+- 实际安装目标为带 `systemd` 的 Linux 系统
+- 证书自动化使用锁定版本的 `acme.sh` 脚本 + DTSW 管理的续签定时器
+- HTTP-01 验证需要 TCP `80` 端口可访问
+- DNS-01 验证需要在 `/etc/dtsw/acme.env` 中配置服务商凭证
+- 首次安装时会自动获取最新稳定版 Xray 并写入配置；获取失败时回落到内置版本 `v26.1.13`
+- 新安装默认在 `127.0.0.1:8080` 启动 Caddy 静态回落网站
+- 默认 Caddy 版本锁定为 `v2.10.2`
+- 默认 `acme.sh` 版本锁定为 `3.1.2`
 
-- traffic statistics and quota management
-- alternate runtime adapters such as `sing-box`
+## 高级命令
 
-## Supported assumptions
-
-- real installation targets Linux with `systemd`
-- certificate automation uses a pinned `acme.sh` script plus DTSW-managed renewal timers
-- HTTP-01 requires TCP `80` to be reachable
-- DNS-01 requires provider credentials in `/etc/dtsw/acme.env`
-- first-time setup resolves the latest stable Xray release and writes it into the config; if lookup fails, DTSW falls back to the bundled version `v26.1.13`
-- fresh installs default to a Caddy-served static fallback website on `127.0.0.1:8080`
-- the default Caddy version is pinned in code and currently set to `v2.10.2`
-- the default `acme.sh` version is pinned in code and currently set to `3.1.2`
-
-## Advanced commands
-
-The interactive menus are the primary path, but command-based operations still exist for automation and debugging:
+交互菜单是主要操作路径，以下命令行操作仍可用于自动化和调试：
 
 ```bash
 dtsw
@@ -86,10 +80,10 @@ dtsw doctor --config /etc/dtsw/config.json
 sudo dtsw runtime upgrade --config /etc/dtsw/config.json --latest
 ```
 
-## Design choices
+## 设计决策
 
-- Domain ownership is mandatory. IP addresses, free wildcard-style domain shortcuts, and bundled public domains are out of scope.
-- Certificate lifecycle stays outside the runtime, so CA switching, diagnostics, and reload behavior are controlled by DTSW rather than embedded in the proxy engine.
-- Fresh installs serve fallback traffic with a DTSW-managed Caddy static site, while the older built-in fallback page remains available as a compatibility mode in config.
-- Xray is the first runtime backend because it is a conservative default for a Trojan-focused migration path. The codebase keeps room for later runtime adapters.
-- Config files containing passwords are written with `0600` permissions for security.
+- 必须使用自有域名。不支持 IP 地址、免费通配符域名或公共共享域名。
+- 证书生命周期独立于运行时，由 DTSW 统一管理 CA 切换、诊断和重载行为，不嵌入代理引擎。
+- 新安装使用 DTSW 管理的 Caddy 静态网站处理回落流量，旧版内置回落页面作为兼容模式保留在配置中。
+- 选择 Xray 作为第一个运行时后端，是 Trojan 场景下的保守默认值，代码预留了接入其他运行时适配器的空间。
+- 含密码的配置文件以 `0600` 权限写入，保障安全。
